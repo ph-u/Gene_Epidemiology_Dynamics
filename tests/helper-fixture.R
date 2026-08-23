@@ -10,16 +10,23 @@ make_fixture <- function(seed = 42L) {
   dir <- tempfile("nfdsfix"); set.seed(seed)
   for (s in c("raw", "src", "data")) dir.create(file.path(dir, s), recursive = TRUE)
 
-  nLoci  <- 12L
-  tPoint <- c(-6, 0, 6, 12)          # negative month exercises the pre-vaccine path
-  nPer   <- c(15, 15, 12, 10)
+  ## Four lineages. Loci 1-4 are one-hot lineage markers, so a genotype always
+  ## determines its lineage -- as ~1090 intermediate-frequency loci do for real.
+  nLin  <- 4L; nVar <- 6L
+  linVT <- c(1L, 0L, 1L, 0L)
+  tPoint <- c(-6, 0, 6, 12)
+  mix    <- list(c(4,4,4,4), c(4,4,4,4), c(2,4,2,4), c(1,3,1,3))  # VT lineages decline
+  lin    <- unlist(lapply(mix, function(m) rep(seq_len(nLin), m)))
 
-  meta <- data.frame(Time = rep(tPoint, nPer),
-                     VT   = rbinom(sum(nPer), 1, 0.4),
-                     SC   = sample(1:3, sum(nPer), replace = TRUE))   # SC must be last
-  gene <- matrix(rbinom(nrow(meta) * nLoci, 1, 0.5), ncol = nLoci)
-  colnames(gene) <- sprintf("CLS%05d", seq_len(nLoci))
-  gene[, 1] <- 1L; gene[, 2] <- 0L   # fixed + absent: d0.keep must drop both
+  base <- matrix(0L, nLin, nLin); diag(base) <- 1L
+  gene <- cbind(base[lin, , drop = FALSE],
+                matrix(rbinom(length(lin) * nVar, 1, 0.5), ncol = nVar),
+                1L, 0L)                                  # fixed + absent: d0.keep drops both
+  colnames(gene) <- sprintf("CLS%05d", seq_len(ncol(gene)))
+
+  meta <- data.frame(Time = rep(tPoint, vapply(mix, sum, 0L)),
+                     VT   = linVT[lin],
+                     SC   = lin)                          # SC must be the last meta column
   write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "raw", "data.tsv"),
               sep = "\t", row.names = FALSE, quote = FALSE)
 
@@ -31,9 +38,6 @@ make_fixture <- function(seed = 42L) {
   write.table(c(11, 22, 33), file.path(dir, "raw", "seed.csv"),
               row.names = FALSE, col.names = FALSE, sep = ",")
 
-  ## link, do not copy -- src/ keeps the only copy of each script.
-  ## NB: linking the *directory* would not work; setwd() canonicalises the
-  ## path, so ".." would resolve back to the real repo root.
   for (f in c("src.r", "nfds.r", "model.r")) {
     tgt <- normalizePath(file.path(SRC_DIR, f), mustWork = TRUE)
     ok  <- suppressWarnings(file.symlink(tgt, file.path(dir, "src", f)))

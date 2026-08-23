@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  BRREWABC_REF: HEAD          # replace with a commit SHA once it works
+  BRREWABC_REF: 2dd5077          # replace with a commit SHA once it works
 
 jobs:
   unit-tests:
