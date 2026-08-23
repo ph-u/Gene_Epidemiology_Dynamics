@@ -1,6 +1,6 @@
-ARG MAMBA_DOCKERFILE_ACTIVATE=1
-FROM mambaorg/micromamba
+FROM mambaorg/micromamba:2.0.5
 #FROM ghcr.io/mamba-org/micromamba:git-fddee42-cuda12.2.2-ubuntu20.04
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
 USER root
 #RUN micromamba install --yes unzip && micromamba clean --all --yes
 COPY env.yaml /tmp/env.yaml
