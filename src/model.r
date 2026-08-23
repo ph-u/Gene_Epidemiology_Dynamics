@@ -14,7 +14,7 @@ if(length(argv)!=2){argv = c("../raw/input.csv", 1)}
 nCPU = as.integer(Sys.getenv("LSB_DJOB_NUMPROC", unset = "1"))
 sEed = read.csv("../raw/seed.csv", header = F)[[1]][as.numeric(argv[2])]
 set.seed(sEed)
-#library(BRREWABC) # https://github.com/GaelBn/BRREWABC
+library(BRREWABC) # https://github.com/GaelBn/BRREWABC
 source("src.r");source("nfds.r")
 f.in = read.csv(argv[1], header = T)
 

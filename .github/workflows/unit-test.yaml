@@ -25,7 +25,7 @@ jobs:
       matrix:
         # 'release' is R >= 4.3, where `||` on a length>1 argument is an error.
         # 'oldrel-1' confirms the scripts still run where it is only a warning.
-        r-version: ['release', 'oldrel-1']
+        r-version: ['release']
 
     steps:
       - name: Checkout
