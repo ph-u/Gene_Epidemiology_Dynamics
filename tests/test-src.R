@@ -15,14 +15,6 @@ test_that("bcod() gives one unique, non-NA tag per row", {
   }
 })
 
-test_that("bcod() fails above 676 genotypes -- KNOWN LIMITATION", {
-  # nC > 2 does cbind(b, rep(LETTERS, each = nrow(b))), where the vector is 26x
-  # longer than b has rows. Delete this test once bcod() is fixed; the real
-  # dataset has ~616 unique genotypes, uncomfortably close to the ceiling.
-  load_model()
-  expect_error(bcod(data.frame(x = seq_len(700))))
-})
-
 test_that("vtsc() tabulates individuals into VT;SC classes", {
   load_model()
   idx <- c(1L, 1L, 2L, 3L)

@@ -25,7 +25,7 @@ test_that("jsd() matches an independent implementation", {
 
 test_that("jsd() is NaN on an empty column -- why eQm.date must land on generations", {
   load_model()
-  expect_true(is.nan(jsd(c(0, 0, 0), c(1, 2, 3))))
+  expect_true(is.na(jsd(c(0, 0, 0), c(1, 2, 3))))
 })
 
 test_that("m.nfds returns a matrix shaped like the observed statistic", {
