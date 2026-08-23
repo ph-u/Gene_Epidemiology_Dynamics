@@ -27,4 +27,3 @@ vtsc = function(idx, cls = vtsc.idx, nLev = length(vtsc.lev)){
   return(tabulate(cls[idx], nbins = nLev))
 }
 
-a=1;rm(a)
