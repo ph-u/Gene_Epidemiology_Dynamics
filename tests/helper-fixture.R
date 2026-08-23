@@ -24,7 +24,7 @@ make_fixture <- function(seed = 42L) {
                 1L, 0L)                                  # fixed + absent: d0.keep drops both
   colnames(gene) <- sprintf("CLS%05d", seq_len(ncol(gene)))
 
-  meta <- data.frame(Time = rep(tPoint, vapply(mix, sum, 0L)),
+  meta <- data.frame(Time = rep(tPoint, vapply(mix, sum, 0)),
                      VT   = linVT[lin],
                      SC   = lin)                          # SC must be the last meta column
   write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "raw", "data.tsv"),
