@@ -1,0 +1,88 @@
+name: unit tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: R ${{ matrix.r-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        # 'release' is R >= 4.3, where `||` on a length>1 argument is an error.
+        # 'oldrel-1' confirms the scripts still run where it is only a warning.
+        r-version: ['release', 'oldrel-1']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check repository layout
+        run: |
+          set -euo pipefail
+          for f in src.r nfds.r model.r; do
+            test -f "src/$f" || { echo "::error::src/$f is missing"; exit 1; }
+            n=$(find . -name "$f" -not -path './.git/*' | wc -l)
+            test "$n" -eq 1 || { echo "::error::$f must exist only in src/ (found $n copies)"; exit 1; }
+          done
+          for d in tests raw; do
+            test -d "$d" || { echo "::error::$d/ is missing"; exit 1; }
+          done
+          for t in helper-fixture.R test-src.R test-nfds.R test-model.R; do
+            test -f "tests/$t" || { echo "::error::tests/$t is missing"; exit 1; }
+          done
+          # the fixture symlinks the scripts rather than copying them
+          ln -s src/model.r /tmp/_symtest && rm /tmp/_symtest
+          echo "layout OK"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r-version }}
+          use-public-rspm: true
+
+      - name: Install testthat
+        run: Rscript -e 'install.packages("testthat")'
+
+      - name: Parse check
+        run: |
+          set -euo pipefail
+          for f in src/src.r src/nfds.r src/model.r; do
+            Rscript -e "invisible(parse('$f')); cat('parse OK  $f\n')"
+          done
+
+      - name: Snapshot working tree
+        run: |
+          find . -path ./.git -prune -o -type f -print0 \
+            | sort -z | xargs -0 -r md5sum > /tmp/tree-before.md5
+
+      - name: Run unit tests
+        env:
+          NFDS_SRC: ${{ github.workspace }}/src
+        run: Rscript -e 'testthat::test_dir("tests", stop_on_failure = TRUE)'
+
+      - name: Working tree must be untouched
+        run: |
+          set -euo pipefail
+          find . -path ./.git -prune -o -type f -print0 \
+            | sort -z | xargs -0 -r md5sum > /tmp/tree-after.md5
+          if ! diff -u /tmp/tree-before.md5 /tmp/tree-after.md5; then
+            echo "::error::the test run read or wrote real repository files"
+            exit 1
+          fi
+          echo "working tree untouched"
+

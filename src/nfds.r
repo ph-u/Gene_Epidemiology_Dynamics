@@ -7,98 +7,65 @@
 # arg: 0
 # date: 20260820
 
-pAr = list(
-  propStrong = .25,
-  fSelected = .1,
-  wSelected = .0001,
-  vSelected = .2,
-  migration = .05
-)
-
 ##### NFDS simulation #####
-m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanStandardize = F){
-  k = as.numeric(g("population")); nGen = eQm[nrow(eQm), 1] ## simulation constants
-  
+m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanStandardize = F, keepGenotypes = F){
+
+  ##### Runtime acceleration #####
+  hEad = 1024
+  G     = rbind(G0, matrix(0, hEad, ncol(G0))); storage.mode(G) = "double"
+  VTu   = c(vt0,  rep(0, hEad));  SCu   = c(sc0,  rep(NA, hEad))
+  mProb = c(mP0,  rep(0, hEad));  tagU  = c(tag0, rep(NA, hEad))
+  clsU  = c(vtsc.idx, rep(NA, hEad))
+  bOrn  = c(rep(0, nrow(G0)), rep(NA, hEad)) # generation of origin
+  pAra  = c(rep(NA_integer_, nrow(G0) + hEad)) # parent genotype row
+  nU    = nrow(G0) # active rows
+
   ##### selection pressure per gene #####
   sEl = rep(log1p(wSelected), length(gNam))
   sEl[order(selMode$strength)[seq_len(floor(length(gNam) * propStrong))]] = log1p(fSelected)
   
   ##### Initial generation #####
   num.Infect = ceiling(k * as.numeric(g("percentage initial infected")) / 100)
-  gen1 = sample(match(d0$tag[d0$Time <= 0], d0.u$tag), num.Infect, replace = T)
-  rec.eQm = c()
+  gen1 = sample(tag.pre, num.Infect, replace = T)
+  rec.eQm = matrix(0, nrow = length(vtsc.lev), ncol = length(eQm.date)); j = 1
   
   ##### Later generations #####
-  for(i in seq_len(nGen)){
-    G = as.matrix(d0.u[,gNam]); storage.mode(G) = "double" # Matrix for speed
+  tIme = (min(eQm$Month) + 1):nGen
+  for(i in seq_len(length(tIme))){
     t2r = drop(tabulate(gen1, nbins = nrow(G)) %*% G) / length(gen1) # https://www.geeksforgeeks.org/r-language/r-operators/; https://www.mathsisfun.com/algebra/matrix-multiplying.html
-    fIt.u = exp(drop(G %*% ((eqm.pre - t2r) * sEl))) * (1 - vSelected * vCurve[i] * d0.u$VT) * (1 - migration) # fitness for unique tags
+    fIt.u = exp(drop(G %*% ((eqm.pre - t2r) * sEl))) * (1 - vSelected * vCurve[i+1] * VTu) * (1 - migration) # fitness for unique tags
     pi.Omega = fIt.u[gen1]
     fIt.adj = k / num.Infect
     if(meanStandardize){ fIt.adj = fIt.adj / mean(pi.Omega) }
-    gen1 = rep(gen1, rpois(num.Infect, pi.Omega * fIt.adj)) # new generation offspring
+    oFf = rpois(num.Infect, pi.Omega * fIt.adj)
+    if(anyNA(oFf) || sum(oFf) >= popRunaway){return(NULL)} # defend against runaway population size
+    gen1 = rep(gen1, oFf) # new generation offspring
+    
+  ##### Recombination (future) #####
     
   ##### Migrations #####
+    if(sum(oFf) < 1){return(NULL)} # if whole bacterial population wiped out
     if(migration > 0){
       nMig = rbinom(1, k, min(1, migration * k / num.Infect))
-      gen1 = c(gen1, sample(migIdx, nMig, replace = T, prob = d0.u$migProb[migIdx]))
+      gen1 = c(gen1, sample(migIdx, nMig, replace = T, prob = mP0[migIdx]))
     }
     num.Infect = length(gen1)
-    
+        
   ##### Simulation records #####
-    if(num.Infect < 1){return(NULL)} # if whole bacterial population wiped out
-    if(i %in% eQm.date){
-      vtsc.lev = sort(unique(d0.u$paste))
-      rec.eQm = c(rec.eQm, 
-        tabulate(match(d0.u$paste, vtsc.lev)[gen1[sample.int(num.Infect, as.numeric(nObs[as.character(i)]), replace = T)]], nbins = length(vtsc.lev)) # convert index for tags to index for VT|SC types, and sample
-        )
+    if(tIme[i] %in% eQm.date){
+      rec.eQm[,j] = vtsc(gen1[sample.int(num.Infect, as.numeric(nObs[as.character(tIme[i])]), replace = T)]) # convert index for tags to index for VT|SC types, and sample
+      j = j + 1
     }
   };rm(i)
-  return(matrix(rec.eQm, ncol = length(eQm.date)))
-
-  ##### Group genes that face strong / weak selection #####
-#  selMode$category[order(selMode$strength)[1:floor(nrow(selMode)*propStrong)]] = "strong"
-#  pStrong = rep(log1p(wSelected), length(gNam))
-#  pStrong[which(selMode$category=="strong")] = log1p(fSelected)
-
-  ##### Initial population #####
-#  num.Infect = ceiling(as.numeric(g("population"))*as.numeric(g("percentage initial infected"))/100)
-#  gen0 = sample(d0$tag[d0$Time <= 0], num.Infect, replace = T)
-#  gen1 = match(gen0, d0.u$tag)
-  # rec.gen0 = rep(NA, eQm[nrow(eQm),1] + 1)
-  # rec.gen0[1] = gsub(" ","",paste(apply(as.data.frame(table(gen0)), 1, paste, collapse = "!"), collapse = ";")) # record offspring population structure
-
-  ##### Simulation #####
-#  i = 1; rec.eQm = c(); repeat{
-#    cat(date(),": gen",i,"\n")
-
-  ##### Matrix for rapid gene matrix calculations #####
-#    G = as.matrix(d0.u[,gNam])
-#    storage.mode(G) = "double"
-
-  ##### Calculate selection pressure strength #####
-#    for(i0 in 1:nrow(d0.u)){
-#      pO = piOmega(d0.u$data[i0], eqm.pre - t2r(gen1), pStrong)
-#      d0.u[i0,c("d.omega", "d.pi")] = pO[c(2,1)]
-#    };rm(i0, pO) # runtime bottleneck
-#    pi.omega = exp(d0.u$d.pi[gen1] * log1p(fSelected)) * exp(d0.u$d.omega[gen1] * log1p(wSelected)) * (1 - vSelected * d0.u$VT[gen1] * vCurve[i]) * (1 - migration) ## raw NFDS selection coefficient for each individual
-#    offspring = rpois(num.Infect, pi.omega * as.numeric(g("population")) / num.Infect / ifelse(meanStandardize, mean(pi.omega), 1))
-    # rec.gen0[i+1] = gsub(" ","",paste(gen0,offspring, sep = "!", collapse = ";")) # record offspring population structure
-
-  ##### Count VT*SC type #####
-#    gen0 = rep(gen0, offspring); gen1 = match(gen0, d0.u$tag)
-
-  ##### Migration #####
-#    if(migration > 0){
-#      gen0 = c(gen0, sample(d0.u$tag[grep("[[:upper:]]", d0.u$tag)], rbinom(1, as.numeric(g("population")), min(1, migration * as.numeric(g("population")) / num.Infect)), replace = T, prob = d0.u$migProb[grep("[[:upper:]]", d0.u$tag)])) # 2017 publication
-#      gen1 = match(gen0, d0.u$tag)
-#    }
-    
-#    if(length(gen0) < 1){return(NULL)}
-#    if(i %in% eQm.date){rec.eQm = c(rec.eQm, vtsc(sample(gen0, sum(d0$Time == i), replace = T)))}
-#    if(i >= eQm[nrow(eQm),1]){break}else{i = i + 1; num.Infect = length(gen0)}
-#  }
-#  return(matrix(rec.eQm, ncol = length(eQm.date)))
+  
+  if(!keepGenotypes){ return(rec.eQm) }
+  kEep = seq_len(nU)
+  return(list(
+    ss = rec.eQm,
+    genotypes = data.frame(row = kEep, tag = tagU[kEep], VT = VTu[kEep], SC = SCu[kEep],
+                           born = bOrn[kEep], parent = pAra[kEep],
+                           finalCount = tabulate(gen1, nbins = nrow(G))[kEep]),
+    G = G[kEep, , drop = FALSE]))
 }
 
 ##### Jensen-Shannon divergence (first translation from cpp model by Claude.ai) #####
