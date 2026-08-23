@@ -1,0 +1,8 @@
+---
+title: "test"
+author: "ph-u"
+date: "20260611"
+output: html_document
+---
+# Resource
+https://www.dataquest.io/blog/r-markdown-guide-cheatsheet/
