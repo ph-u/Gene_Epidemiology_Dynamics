@@ -1,0 +1,20 @@
+﻿parameters,distribution,distribution.mean,distribution.SD
+population size,unif,100,1
+number of community,unif,100,1
+max generation,unif,100,1
+genotype sample size,unif,100,
+gene decay rate,unif,100,1
+density dependency mode,,100,1
+f selection,unif,100,1
+v selection,unif,100,1
+immigration rate,unif,100,1
+immigration type,unif,100,1
+upper limit,unif,100,1
+lower limit,unif,100,1
+selected prop,unif,100,1
+lower selection,unif,100,1
+higher selection,unif,100,1
+transformation proportion,unif,100,1
+transformation rate,unif,100,1
+transformation asymmetry loci,unif,100,1
+transformation asymmetry marker,unif,100,1
