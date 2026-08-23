@@ -6,7 +6,7 @@ USER root
 COPY env.yaml /tmp/env.yaml
 RUN micromamba install -y -n base -f /tmp/env.yaml && micromamba clean --all --yes
 ENV PATH=/opt/conda/bin:$PATH
-RUN Rscript -e "remotes::install_github('GaelBn/BRREWABC@<commit-sha', upgrade='never')"
+RUN Rscript -e "remotes::install_github('GaelBn/BRREWABC@2dd5077', upgrade='never')"
 
 ARG CACHEBUST
 RUN echo "$CACHEBUST"
