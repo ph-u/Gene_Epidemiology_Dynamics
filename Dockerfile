@@ -10,7 +10,7 @@ ENV PATH=/opt/conda/bin:$PATH
 COPY raw /raw
 COPY src /src
 RUN mkdir -p /data
-#RUN Rscript -e "install.packages('pak', dependencies = T); pak::pak('GaelBn/BRREWABC')"
+RUN Rscript -e "devtools::install_github('GaelBn/BRREWABC')"
 ENV OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 WORKDIR /src
 CMD ["R", "--version"]
