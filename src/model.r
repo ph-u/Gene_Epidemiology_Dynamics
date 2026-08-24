@@ -98,8 +98,8 @@ res <- abcsmc(
   experiment_folderpath  = "../data",
   max_concurrent_jobs    = nCPU,
   use_lhs_for_first_iter = TRUE,
-  verbose                = FALSE,
-  progressbar            = TRUE
+  verbose                = TRUE,
+  progressbar            = FALSE
 )
 
 ##### Export #####
