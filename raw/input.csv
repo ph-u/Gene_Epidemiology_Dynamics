@@ -1,5 +1,5 @@
 Type,Value,Note
-data,../raw/mass.input,tab-separated spreadsheet
+data,../data/mass.input,tab-separated spreadsheet
 gff3,../raw/GCA_000014365.gff,gene table of Streptococcus pneumoniae
 gene fitness,../raw/gFitness.csv,https://doi.org/10.1128/IAI.00713-20;https://doi.org/10.1038/nmeth.1377
 genes for recombination mechanism,SPD_2063;SPD_2064;SPD_2065;SPD_1739;SPD_1015;SPD_0042;SPD_1485,https://doi.org/10.3390/cells10081938;https://doi.org/10.1186/s13059-023-02914-z;https://pneumobrowse2.veeninglab.com/
