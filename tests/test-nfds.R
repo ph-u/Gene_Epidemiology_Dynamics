@@ -118,7 +118,7 @@ test_that("nfds_jsd returns the maximum distance when the simulation fails", {
 test_that("nfds_jsd bootstraps itself in a worker with an empty globalenv", {
   # reproduces `could not find function "m.nfds"`: subjob_smc() runs a fresh
   # Rscript, and globalenv() is never serialised with the function
-  load_model()
+  load_full()
   scr <- file.path(FIXTURE_DIR, "src")
   out <- system2("Rscript", c("-e", shQuote(sprintf(
     'setwd("%s"); load("../data/setupState.RData", envir = globalenv());

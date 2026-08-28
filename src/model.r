@@ -11,11 +11,14 @@ argv = (commandArgs(T))
 if(length(argv)!=2){argv = c("../raw/input.csv", 1)}
 
 ##### env #####
+library(BRREWABC) # https://github.com/GaelBn/BRREWABC
 nCPU = as.integer(Sys.getenv("LSB_DJOB_NUMPROC", unset = "1"))
 sEed = read.csv("../raw/seed.csv", header = F)[[1]][as.numeric(argv[2])]
-set.seed(sEed)
+
+source("setup.r")
 
 save(list = ls(envir = globalenv()), file = "../data/setupState.RData", envir = globalenv(), compress = T)
+set.seed(sEed)
 
 ##### Parameters #####
 #tRuth = c(sigma_f = 0.15, sigma_v = 0.10, m = 0.02, pf = 0.25, sigma_w = 0.003) # 2017 publication

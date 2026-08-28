@@ -8,7 +8,8 @@
 # date: 20260819
 
 ##### env #####
-library(BRREWABC) # https://github.com/GaelBn/BRREWABC
+argv = (commandArgs(T))
+if(length(argv)!=2){argv = c("../raw/input.csv", 1)}
 source("src.r");source("nfds.r")
 f.in = read.csv(argv[1], header = T)
 

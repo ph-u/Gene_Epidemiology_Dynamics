@@ -79,11 +79,13 @@ load_model <- function(force = FALSE) {
 }
 
 load_full <- function() {
+  if (isTRUE(getOption("nfds.full"))) return(invisible(TRUE))
   dir <- make_fixture()
   assign("abcsmc", stub_abcsmc, envir = globalenv())
   assign("FIXTURE_DIR", dir, envir = globalenv())
   old <- setwd(file.path(dir, "src")); on.exit(setwd(old))
   Sys.setenv(NFDS_SRC = getwd())
   source("model.r")
+  options(nfds.full = TRUE, nfds.loaded = TRUE)
   invisible(TRUE)
 }
