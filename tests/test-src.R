@@ -35,3 +35,11 @@ test_that("vtsc.idx and vtsc.lev stay consistent with d0.u", {
   expect_equal(vtsc.idx, match(d0.u$paste, vtsc.lev))
   expect_false(anyNA(vtsc.idx))
 })
+
+test_that("each seed gets its own output directory", {
+  load_full()
+  dOut <- file.path(FIXTURE_DIR, "data", paste0("run_", sEed))
+  expect_true(dir.exists(file.path(dOut, "tmp")))
+  expect_identical(normalizePath(Sys.getenv("NFDS_STATE")),
+                   normalizePath(file.path(dOut, "setupState.RData")))
+})

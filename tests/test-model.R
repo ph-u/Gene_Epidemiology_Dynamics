@@ -101,13 +101,13 @@ test_that("abcsmc receives the observed statistic and a five-parameter prior", {
 
 test_that("the export writes one genotype row per genotype per posterior particle", {
   load_full()
-  f <- list.files(file.path(FIXTURE_DIR, "data"),
-                  pattern = "^nfdsGenotypes_", full.names = TRUE)
+  dOut <- file.path(FIXTURE_DIR, "data", paste0("run_", sEed))
+  f <- list.files(dOut, pattern = "^nfdsGenotypes_", full.names = TRUE)
   expect_length(f, 1)
   x <- read.csv(f)
   expect_equal(nrow(x), nrow(d0.u) * 2)      # stub returns two particles
   expect_setequal(unique(x$particle), 1:2)
-  expect_length(list.files(file.path(FIXTURE_DIR, "data"), pattern = "\\.rds$"), 2)
+  expect_length(list.files(dOut, pattern = "\\.rds$"), 2)
 })
 
 test_that("setup.r defines no side effects that belong in model.r", {
@@ -121,7 +121,7 @@ test_that("setup.r defines no side effects that belong in model.r", {
 
 test_that("model.r writes a prepared state a worker can load", {
   load_full()
-  f <- file.path(FIXTURE_DIR, "data", "setupState.RData")
+  f <- file.path(FIXTURE_DIR, "data", paste0("run_", sEed), "setupState.RData")
   expect_true(file.exists(f))
   e <- new.env(); load(f, envir = e)
   for (o in c("m.nfds", "jsd", "nfds_jsd", "vtsc", "G0", "eqm.pre",

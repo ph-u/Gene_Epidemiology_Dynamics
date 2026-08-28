@@ -61,7 +61,7 @@ for(p in seq_len(nrow(pOst))){
              pOst$vSelected[p], pOst$migration[p], keepGenotypes = T)
   gT = r$genotypes; gT$particle = p; gT$seed = sP
   oUt[[p]] = gT
-  saveRDS(list(G = r$G, meta = gT), file.path(paste0("nfdsG_", sP, ".rds")))
+  saveRDS(list(G = r$G, meta = gT), file.path(oUtDir, paste0("nfdsG_", sP, ".rds")))
 };rm(p)
-write.csv(do.call(rbind, oUt), file.path(paste0("nfdsGenotypes_", gsub(" ", "-", date()), "_", sEed, ".csv")), row.names = F, quote = F)
+write.csv(do.call(rbind, oUt), file.path(oUtDir, paste0("nfdsGenotypes_", gsub(" ", "-", date()), "_", sEed, ".csv")), row.names = F, quote = F)
 

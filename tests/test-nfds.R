@@ -119,8 +119,8 @@ test_that("nfds_jsd bootstraps itself in a worker with an empty globalenv", {
   load_full()
   scr <- file.path(FIXTURE_DIR, "src")
   out <- system2("Rscript", c("-e", shQuote(sprintf(
-    'setwd("%s")
-     load("../data/setupState.RData", envir = globalenv())
+        'setwd("%s")
+     load(Sys.getenv("NFDS_STATE"), envir = globalenv())
      f <- get("nfds_jsd", globalenv()); obs <- get("mIg0", globalenv())
      rm(list = setdiff(ls(globalenv()), c("f", "obs")), envir = globalenv())
      environment(f) <- globalenv()
