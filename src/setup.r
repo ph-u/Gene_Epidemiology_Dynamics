@@ -8,9 +8,11 @@
 # date: 20260819
 
 ##### env #####
-argv = (commandArgs(T))
-if(length(argv)!=2){argv = c("../raw/input.csv", 1)}
 source("src.r");source("nfds.r")
+if(!exists("argv")){
+  argv = commandArgs(T)
+  if(length(argv) != 2){ argv = c("../raw/input.csv", 1) }
+}
 f.in = read.csv(argv[1], header = T)
 
 k = as.numeric(g("population"))
