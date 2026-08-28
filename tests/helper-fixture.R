@@ -38,7 +38,7 @@ make_fixture <- function(seed = 42L) {
   write.table(c(11, 22, 33), file.path(dir, "raw", "seed.csv"),
               row.names = FALSE, col.names = FALSE, sep = ",")
 
-  for (f in c("src.r", "nfds.r", "model.r")) {
+  for (f in c("src.r", "nfds.r", "setup.r", "model.r")) {
     tgt <- normalizePath(file.path(SRC_DIR, f), mustWork = TRUE)
     ok  <- suppressWarnings(file.symlink(tgt, file.path(dir, "src", f)))
     if (!ok) {
@@ -71,8 +71,19 @@ load_model <- function(force = FALSE) {
   assign("abcsmc", stub_abcsmc, envir = globalenv())
   assign("FIXTURE_DIR", dir, envir = globalenv())
   old <- setwd(file.path(dir, "src")); on.exit(setwd(old))
-  stopifnot(identical(normalizePath(".."), normalizePath(dir)))  # redirection worked
-  source("model.r")                      # commandArgs(T) is empty -> defaults are used
+  stopifnot(identical(normalizePath(".."), normalizePath(dir)))
+  Sys.setenv(NFDS_SRC = getwd())          # what a worker would read
+  source("setup.r")                        # data prep only; no abcsmc, no set.seed
   options(nfds.loaded = TRUE)
+  invisible(TRUE)
+}
+
+load_full <- function() {
+  dir <- make_fixture()
+  assign("abcsmc", stub_abcsmc, envir = globalenv())
+  assign("FIXTURE_DIR", dir, envir = globalenv())
+  old <- setwd(file.path(dir, "src")); on.exit(setwd(old))
+  Sys.setenv(NFDS_SRC = getwd())
+  source("model.r")
   invisible(TRUE)
 }

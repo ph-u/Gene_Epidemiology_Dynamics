@@ -1,6 +1,6 @@
-test_that("all three scripts parse", {
+test_that("all four scripts parse", {
   # catches the `set,seed` / unbalanced-parenthesis class of error before anything runs
-  for (f in c("src.r", "nfds.r", "model.r"))
+  for (f in c("src.r", "nfds.r", "setup.r", "model.r"))
     expect_silent(invisible(parse(file.path(SRC_DIR, f))))
 })
 
@@ -91,7 +91,7 @@ test_that("every sampling month falls inside the simulated generations", {
 })
 
 test_that("abcsmc receives the observed statistic and a five-parameter prior", {
-  load_model()
+  load_full()
   expect_identical(ABCSMC_CALL$ss_obs, mIg0)
   expect_length(prior_dist$nfds, 5)
   expect_setequal(vapply(prior_dist$nfds, `[`, character(1), 1),
@@ -100,7 +100,7 @@ test_that("abcsmc receives the observed statistic and a five-parameter prior", {
 })
 
 test_that("the export writes one genotype row per genotype per posterior particle", {
-  load_model()
+  load_full()
   f <- list.files(file.path(FIXTURE_DIR, "data"),
                   pattern = "^nfdsGenotypes_", full.names = TRUE)
   expect_length(f, 1)
@@ -108,4 +108,29 @@ test_that("the export writes one genotype row per genotype per posterior particl
   expect_equal(nrow(x), nrow(d0.u) * 2)      # stub returns two particles
   expect_setequal(unique(x$particle), 1:2)
   expect_length(list.files(file.path(FIXTURE_DIR, "data"), pattern = "\\.rds$"), 2)
+})
+
+test_that("setup.r defines no side effects that belong in model.r", {
+  # workers source setup.r; a set.seed() there would correlate every particle
+  txt <- readLines(file.path(SRC_DIR, "setup.r"))
+  txt <- txt[!grepl("^\\s*#", txt)]
+  expect_false(any(grepl("set\\.seed", txt)))
+  expect_false(any(grepl("abcsmc", txt)))
+  expect_false(any(grepl("write\\.csv|saveRDS", txt)))
+})
+
+test_that("model.r writes a prepared state a worker can load", {
+  load_full()
+  f <- file.path(FIXTURE_DIR, "data", "setupState.RData")
+  expect_true(file.exists(f))
+  e <- new.env(); load(f, envir = e)
+  for (o in c("m.nfds", "jsd", "nfds_jsd", "vtsc", "G0", "eqm.pre",
+              "mIg0", "selMode", "vCurve", "d0.u", "nObs", "vtsc.lev"))
+    expect_true(exists(o, envir = e), info = o)
+})
+
+test_that("genotype, SC and VT are one-to-one -- migProb assumes it", {
+  load_model()
+  expect_true(all(tapply(d0$SC, d0$tag, function(x) length(unique(x))) == 1))
+  expect_true(all(tapply(d0$VT, d0$tag, function(x) length(unique(x))) == 1))
 })
