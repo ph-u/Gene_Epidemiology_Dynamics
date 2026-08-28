@@ -84,8 +84,9 @@ nfds_jsd = function(x, ss_obs){
   if(!exists("m.nfds", envir = globalenv(), inherits = FALSE)){
     d = Sys.getenv("NFDS_SRC", unset = getwd())
     owd = setwd(d); on.exit(setwd(owd), add = TRUE)
-    if(file.exists("../data/setupState.RData")){
-      load("../data/setupState.RData", envir = globalenv())
+    sT = Sys.getenv("NFDS_STATE", unset = "../data/setupState.RData")
+    if(file.exists(sT)){
+      load(sT, envir = globalenv())
     }else{
       sys.source("setup.r", envir = globalenv())
     }

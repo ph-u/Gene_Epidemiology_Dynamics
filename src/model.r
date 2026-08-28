@@ -15,9 +15,15 @@ library(BRREWABC) # https://github.com/GaelBn/BRREWABC
 nCPU = as.integer(Sys.getenv("LSB_DJOB_NUMPROC", unset = "1"))
 sEed = read.csv("../raw/seed.csv", header = F)[[1]][as.numeric(argv[2])]
 
+##### per-run directory: concurrent seeds must not share ../data/tmp #####
+oUtDir = file.path("..", "data", paste0("run_", sEed))
+dir.create(file.path(oUtDir, "tmp"), recursive = T, showWarnings = F)
+oUtDir = normalizePath(oUtDir, mustWork = T)
+Sys.setenv(NFDS_STATE = file.path(oUtDir, "setupState.RData"))
+
 source("setup.r")
 
-save(list = ls(envir = globalenv()), file = "../data/setupState.RData", envir = globalenv(), compress = T)
+save(list = ls(envir = globalenv()), file = Sys.getenv("NFDS_STATE"), envir = globalenv(), compress = T)
 set.seed(sEed)
 
 ##### Parameters #####
@@ -39,7 +45,7 @@ res <- abcsmc(
   new_threshold_quantile = 0.8,
   distance_threshold_min = .14, # Claude Opus 5 suggested
   acceptance_rate_min    = 0.01,
-  experiment_folderpath  = "../data",
+  experiment_folderpath  = oUtDir,
   max_concurrent_jobs    = nCPU,
   use_lhs_for_first_iter = TRUE,
   verbose                = TRUE,
@@ -55,7 +61,7 @@ for(p in seq_len(nrow(pOst))){
              pOst$vSelected[p], pOst$migration[p], keepGenotypes = T)
   gT = r$genotypes; gT$particle = p; gT$seed = sP
   oUt[[p]] = gT
-  saveRDS(list(G = r$G, meta = gT), paste0("../data/nfdsG_", sP, ".rds"))
-}
-write.csv(do.call(rbind, oUt), paste0("../data/nfdsGenotypes_", gsub(" ", "-", date()), "_", sEed, ".csv"), row.names = F, quote = F)
+  saveRDS(list(G = r$G, meta = gT), file.path(paste0("nfdsG_", sP, ".rds")))
+};rm(p)
+write.csv(do.call(rbind, oUt), file.path(paste0("nfdsGenotypes_", gsub(" ", "-", date()), "_", sEed, ".csv")), row.names = F, quote = F)
 
