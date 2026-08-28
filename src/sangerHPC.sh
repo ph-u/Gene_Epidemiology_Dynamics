@@ -11,7 +11,8 @@ PATH="/software/isg/private/wrappers/apptainer/1.4.0:$PATH"
 
 mkdir -p ../data
 
-[[ -f gene_epidemiology_dynamics_latest.sif ]] && rm gene_epidemiology_dynamics_latest.sif && apptainer pull docker://ghcr.io/ph-u/gene_epidemiology_dynamics:latest
+[[ -f gene_epidemiology_dynamics_latest.sif ]] && rm gene_epidemiology_dynamics_latest.sif
+apptainer pull docker://ghcr.io/ph-u/gene_epidemiology_dynamics:latest
 
 sed -e "s/mAx/$(( `wc -l < ../upload/seed.csv` ))/" sangerHPC_child.sh > sC.sh
 

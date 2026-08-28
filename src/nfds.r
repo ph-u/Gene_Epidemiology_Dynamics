@@ -11,7 +11,7 @@
 m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanStandardize = F, keepGenotypes = F){
 
   ##### Runtime acceleration #####
-  hEad = 1024
+  hEad = 0 #1024
   G     = rbind(G0, matrix(0, hEad, ncol(G0))); storage.mode(G) = "double"
   VTu   = c(vt0,  rep(0, hEad));  SCu   = c(sc0,  rep(NA, hEad))
   mProb = c(mP0,  rep(0, hEad));  tagU  = c(tag0, rep(NA, hEad))
@@ -79,11 +79,21 @@ jsd = function(p, q){ # p, q = phenotype counts
 }
 
 ##### Model using JSD index #####
-nfds_jsd = function(x, ss_obs) {
-  sim <- m.nfds(x[["propStrong"]], x[["fSelected"]], x[["wSelected"]],
-                x[["vSelected"]], x[["migration"]])
+nfds_jsd = function(x, ss_obs){
+  ## workers are fresh R processes: globalenv() does not travel with this function
+  if(!exists("m.nfds", envir = globalenv(), inherits = FALSE)){
+    d = Sys.getenv("NFDS_SRC", unset = getwd())
+    owd = setwd(d); on.exit(setwd(owd), add = TRUE)
+    if(file.exists("../data/setupState.RData")){
+      load("../data/setupState.RData", envir = globalenv())
+    }else{
+      sys.source("setup.r", envir = globalenv())
+    }
+  }
+  sim = m.nfds(x[["propStrong"]], x[["fSelected"]], x[["wSelected"]], x[["vSelected"]], x[["migration"]])
   if(is.null(sim) || any(is.na(sim))){ return(ncol(ss_obs) * log(2)) }  # extinction
-  return( sum(vapply(seq_len(ncol(ss_obs)),
-                     function(j) jsd(sim[,j], ss_obs[,j]), 0)) )
+  d = sum(vapply(seq_len(ncol(ss_obs)), function(j) jsd(sim[,j], ss_obs[,j]), 0))
+  if(!is.finite(d)){ return(ncol(ss_obs) * log(2)) } # output does not match data
+  return(d)
 }
 
