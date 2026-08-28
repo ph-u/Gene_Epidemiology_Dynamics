@@ -116,19 +116,18 @@ test_that("nfds_jsd returns the maximum distance when the simulation fails", {
 })
 
 test_that("nfds_jsd bootstraps itself in a worker with an empty globalenv", {
-  # reproduces `could not find function "m.nfds"`: subjob_smc() runs a fresh
-  # Rscript, and globalenv() is never serialised with the function
   load_full()
   scr <- file.path(FIXTURE_DIR, "src")
   out <- system2("Rscript", c("-e", shQuote(sprintf(
-    'setwd("%s"); load("../data/setupState.RData", envir = globalenv());
-     f <- get("nfds_jsd", globalenv()); rm(list = setdiff(ls(globalenv()), "f"), envir = globalenv());
-     environment(f) <- globalenv(); assign("nfds_jsd", f, globalenv());
-     obs <- local({ e <- new.env(); sys.source("setup.r", e); e$mIg0 });
-     cat(nfds_jsd(list(propStrong=.2, fSelected=.1, wSelected=.001,
-                       vSelected=.1, migration=.02), obs))', scr))),
+    'setwd("%s")
+     load("../data/setupState.RData", envir = globalenv())
+     f <- get("nfds_jsd", globalenv()); obs <- get("mIg0", globalenv())
+     rm(list = setdiff(ls(globalenv()), c("f", "obs")), envir = globalenv())
+     environment(f) <- globalenv()
+     cat(f(list(propStrong = .2, fSelected = .1, wSelected = .001,
+                vSelected = .1, migration = .02), obs))', scr))),
     stdout = TRUE, stderr = TRUE)
-  expect_false(any(grepl("could not find function", out)))
+  expect_false(any(grepl("could not find function|object .* not found", out)))
   expect_true(is.finite(suppressWarnings(as.numeric(tail(out, 1)))))
 })
 
