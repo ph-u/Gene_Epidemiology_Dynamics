@@ -21,9 +21,5 @@ export NFDS_SRC=${PWD}/src
 
 apptainer run --bind ${PWD}/../data:/data --pwd /src gene_epidemiology_dynamics_latest.sif bash run.sh ${LSB_JOBINDEX}
 
-while sleep 60; do
-  find ../data/tmp -name '*.err' -size +0 -exec cat {} + && break
-done
-
 exit
 ## any BSUB -J with the correct format, no matter at any line, later line will replace earlier lines # BSUB -J "tdy[1-360]"
