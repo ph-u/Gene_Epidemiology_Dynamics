@@ -10,6 +10,12 @@
 ##### NFDS simulation #####
 m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanStandardize = F, keepGenotypes = F){
 
+  ##### Parameter logarthimic transformation #####
+  fSelected = exp(fSelected)
+  wSelected = exp(wSelected)
+  vSelected = vSelected * .5
+  migration = migration * .2
+
   ##### Runtime acceleration #####
   hEad = 0 #1024
   G     = rbind(G0, matrix(0, hEad, ncol(G0))); storage.mode(G) = "double"
@@ -23,12 +29,12 @@ m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanSt
   ##### selection pressure per gene #####
   sEl = rep(log1p(wSelected), length(gNam))
   sEl[order(selMode$strength)[seq_len(floor(length(gNam) * propStrong))]] = log1p(fSelected)
-  
+
   ##### Initial generation #####
   num.Infect = ceiling(k * as.numeric(g("percentage initial infected")) / 100)
   gen1 = sample(tag.pre, num.Infect, replace = T)
   rec.eQm = matrix(0, nrow = length(vtsc.lev), ncol = length(eQm.date)); j = 1
-  
+
   ##### Later generations #####
   tIme = (min(eQm$Month) + 1):nGen
   for(i in seq_len(length(tIme))){
@@ -40,9 +46,9 @@ m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanSt
     oFf = rpois(num.Infect, pi.Omega * fIt.adj)
     if(anyNA(oFf) || sum(oFf) >= popRunaway){return(NULL)} # defend against runaway population size
     gen1 = rep(gen1, oFf) # new generation offspring
-    
+
   ##### Recombination (future) #####
-    
+
   ##### Migrations #####
     if(sum(oFf) < 1){return(NULL)} # if whole bacterial population wiped out
     if(migration > 0){
@@ -50,14 +56,14 @@ m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanSt
       gen1 = c(gen1, sample(migIdx, nMig, replace = T, prob = mP0[migIdx]))
     }
     num.Infect = length(gen1)
-        
+
   ##### Simulation records #####
     if(tIme[i] %in% eQm.date){
       rec.eQm[,j] = vtsc(gen1[sample.int(num.Infect, as.numeric(nObs[as.character(tIme[i])]), replace = T)]) # convert index for tags to index for VT|SC types, and sample
       j = j + 1
     }
   };rm(i)
-  
+
   if(!keepGenotypes){ return(rec.eQm) }
   kEep = seq_len(nU)
   return(list(

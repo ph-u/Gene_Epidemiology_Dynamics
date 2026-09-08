@@ -28,15 +28,21 @@ set.seed(sEed)
 
 ##### Parameters #####
 #tRuth = c(sigma_f = 0.15, sigma_v = 0.10, m = 0.02, pf = 0.25, sigma_w = 0.003) # 2017 publication
-nLst = c(0,1,1e-6,.22,1e-6,.15,0,.5,0,.2)
-prior_dist <- list(nfds = list(c("propStrong", "unif", nLst[1], nLst[2]),
-                               c("fSelected", "unif", nLst[3], nLst[4]),
-                               c("wSelected", "unif", nLst[5], nLst[6]),
-                               c("vSelected", "unif", nLst[7], nLst[8]),
-                               c("migration", "unif", nLst[9], nLst[10])))
+#nLst = c(0,1,1e-6,.22,1e-6,.15,0,.5,0,.2)
+prior_dist <- list(nfds = list(c("propStrong", "unif", 0, 1),
+                               c("fSelected", "unif", -14, -1),
+                               c("wSelected", "unif", -14, -1),
+                               c("vSelected", "unif", 0, 1),
+                               c("migration", "unif", 0, 1)))
 
 ##### Calculate distance_threshold_min #####
-d = replicate(200, nfds_jsd(list(propStrong = runif(1, nLst[1], nLst[2]), fSelected  = runif(1, nLst[3], nLst[4]), wSelected  = runif(1, nLst[5], nLst[6]), vSelected  = runif(1, nLst[7], nLst[8]), migration  = runif(1, nLst[9], nLst[10])), mIg0))
+d = replicate(200, nfds_jsd(list(
+  propStrong = runif(1, as.numeric(prior_dist[[1]][1][[1]][3]), as.numeric(prior_dist[[1]][1][[1]][4])),
+  fSelected  = runif(1, as.numeric(prior_dist[[1]][2][[1]][3]), as.numeric(prior_dist[[1]][2][[1]][4])),
+  wSelected  = runif(1, as.numeric(prior_dist[[1]][3][[1]][3]), as.numeric(prior_dist[[1]][3][[1]][4])),
+  vSelected  = runif(1, as.numeric(prior_dist[[1]][4][[1]][3]), as.numeric(prior_dist[[1]][4][[1]][4])),
+  migration  = runif(1, as.numeric(prior_dist[[1]][5][[1]][3]), as.numeric(prior_dist[[1]][5][[1]][4]))
+  ), mIg0))
 
 ##### ABCSMC-NFDS (first draft by Claude.ai) #####
 res <- abcsmc(
@@ -45,7 +51,7 @@ res <- abcsmc(
   ss_obs                 = mIg0,
   nb_threshold           = 1,
   nb_acc_prtcl_per_gen   = 200,
-  max_number_of_gen      = 50,
+  max_number_of_gen      = 150,
   new_threshold_quantile = .9,
   distance_threshold_min = .05, # min(d)*1.05, quantile(d, .01)
   acceptance_rate_min    = .005,

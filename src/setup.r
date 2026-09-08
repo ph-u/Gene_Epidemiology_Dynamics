@@ -19,7 +19,7 @@ k = as.numeric(g("population"))
 popRunaway = 10 * k
 d0 = read.table(g("data"), header = T, sep = "\t")
 mEnd = which(colnames(d0)=="SC")
-d0.keep = colMeans(d0[,-(1:mEnd)]) > 0 & colMeans(d0[,-(1:mEnd)]) < 1
+d0.keep = colMeans(d0[,-(1:mEnd)]) > .05 & colMeans(d0[,-(1:mEnd)]) < .95
 d0 = d0[,c(colnames(d0)[1:mEnd], names(d0.keep)[which(d0.keep)])]
 
 ##### Barcoding unique genotypes & construct difference dictionary #####
