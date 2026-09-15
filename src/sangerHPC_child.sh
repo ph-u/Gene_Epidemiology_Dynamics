@@ -10,7 +10,7 @@
 #BSUB -G team377f
 #BSUB -o ../work/pj01-%J-%I.o
 #BSUB -e ../work/pj01-%J-%I.e
-#BSUB -q long
+#BSUB -q week
 #BSUB -n 10
 #BSUB -M 6000
 #BSUB -R "select[mem>6000] rusage[mem=6000] span[hosts=1]"
