@@ -4,3 +4,5 @@ p_*
 *.sw*
 data
 res
+run_*
+.Rhistory

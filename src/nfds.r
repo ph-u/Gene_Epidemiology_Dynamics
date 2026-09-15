@@ -10,9 +10,9 @@
 ##### NFDS simulation #####
 m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanStandardize = F, keepGenotypes = F){
 
-  ##### Parameter logarthimic transformation #####
-  fSelected = exp(fSelected)
-  wSelected = exp(wSelected)
+  ##### Parameter transformation #####
+  #fSelected = exp(fSelected)
+  #wSelected = exp(wSelected)
   vSelected = vSelected * .5
   migration = migration * .2
 

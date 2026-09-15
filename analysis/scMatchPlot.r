@@ -7,28 +7,28 @@
 # arg: 0
 # date: 20260903
 
-##### colour #####
-cBp = c(); set.seed(123); for(i in c("Okabe-Ito", "alphabet", "polychrome 36", "dark 2", "set 1", "classic tableau")){
-  if(i == "Okabe-Ito"){
-    cBp = c(cBp, rev(palette.colors(palette = i, alpha=1, recycle = F)))
-  }else{
-    cBp.t = palette.colors(palette = i, alpha=1, recycle = F)
-    cBp = c(cBp, sample(cBp.t, length(cBp.t)))
-  }};rm(i, cBp.t);cBp = unique(cBp)
-
 ##### env #####
-sEed = read.csv("../raw/seed.csv", header = F)
+source("colour.r")
+#sEed = read.csv("../raw/seed.csv", header = F)
 #rAw = read.table("../data/mass.input", header = T, sep = "\t")
-parIn = read.csv("../data/all_accepted_particles.csv", header = T)
+f.in = list.files("../data/20260908", pattern = "all_", full.names = T)
+sEed = read.table(text = gsub("_","-",basename(f.in)), sep = "-")[,2]
+for(i in seq_len(length(f.in))){
+  d0 = read.csv(f.in[i], header = T)
+  d0$f.in = sEed[i]
+  if(i>1){parIn = rbind(parIn, d0)}else{parIn = d0}
+};rm(i, f.in, d0)
+#parIn = parIn[parIn$dist1 < quantile(parIn$dist1, probs = .2),]
+parIn = parIn[parIn$dist1 %in% parIn$dist1[order(parIn$dist1)[seq_len(1000)]],]
 pOri = getwd(); setwd("../src/"); source("setup.r"); setwd(pOri); rm(pOri)
 
-parIn$gen = sEed$V1[match(parIn$gen, row.names(sEed))]
+#parIn$gen = sEed$V1[match(parIn$gen, row.names(sEed))]
 
 ##### Simulation reconstruction #####
 cat(date(),": start model\n")
 for(i in seq_len(nrow(parIn))){
   cat(date(),":",i,"/",nrow(parIn),"(",round(i/nrow(parIn)*100,2),"% )       \r")
-  set.seed(parIn$gen[i])
+  set.seed(parIn$f.in[i])
   r.nfds = cbind(as.numeric(i), vtsc.lev, read.table(text = vtsc.lev, sep = ";"), m.nfds(parIn$propStrong[i], parIn$fSelected[i], parIn$wSelected[i], parIn$vSelected[i], parIn$migration[i], meanStandardize = F, keepGenotypes = T)$ss)
   colnames(r.nfds) = c("rep", "vtsc", "vt", "sc", paste0("t", eQm.date))
   r.nfds[,(-1:0)+ncol(r.nfds)] = r.nfds[,(-1:0)+ncol(r.nfds)]/colSums(r.nfds[,(-1:0)+ncol(r.nfds)])
