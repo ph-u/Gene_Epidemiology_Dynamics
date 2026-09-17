@@ -39,7 +39,6 @@ prior_dist <- list(nfds = c(
        c("wSelected",  "unif", 1e-6, .15), # weak NFDS coefficient
        c("migration",  "unif", 0, 1),      # external immigration into the metapopulation
        c("coInf",      "unif", 0, 1),      # co-infection: 0 = Poisson, >0 = overdispersed
-       c("vSelMod",    "unif", 0, 1),      # cohort roll-out ramp width; 0 = step
        c("mWithin",    "unif", 0, 1)),     # between-deme movement
   lapply(seq_len(nVac), function(v) c(paste0("vSelected", v), "unif", 0, 1))))
 
@@ -81,7 +80,7 @@ for(p in seq_len(nrow(pOst))){
   sP = sEed + p; set.seed(sP) # recorded, so the re-run is reproducible
   vS = vapply(seq_len(nVac), function(v) pOst[[paste0("vSelected", v)]][p], 0)
   r  = m.nfds(pOst$propStrong[p], pOst$fSelected[p], pOst$wSelected[p], vS,
-              pOst$migration[p], pOst$coInf[p], pOst$vSelMod[p], pOst$mWithin[p],
+              pOst$migration[p], pOst$coInf[p], pOst$mWithin[p],
               keepGenotypes = T)
   if(is.null(r)){ next }   # an accepted particle can still fail under a different seed
   gT = r$genotypes; gT$particle = p; gT$seed = sP

@@ -1,11 +1,10 @@
 ##### shared fixture for test-src.R / test-nfds.R / test-model.R #####
-## testthat sources every helper-*.R before any test-*.R, into the same
-## environment, so everything below is visible to the tests.
+## testthat sources every helper-*.R before any test-*.R, into the same environment.
 
 SRC_DIR <- normalizePath(Sys.getenv("NFDS_SRC", unset = file.path("..", "src")),
                          mustWork = TRUE)
 
-##### small but structurally faithful: 3 demes, 2 nested vaccines, staggered roll-out #####
+##### small but structurally faithful: 3 demes, 2 nested vaccines, 4 host ages #####
 make_fixture <- function(seed = 42L) {
   dir <- tempfile("nfdsfix"); set.seed(seed)
   for (s in c("raw", "src", "data")) dir.create(file.path(dir, s), recursive = TRUE)
@@ -13,12 +12,14 @@ make_fixture <- function(seed = 42L) {
   nLin <- 4L; nVar <- 6L; nDm <- 3L
   vt1  <- c(1L, 0L, 0L, 0L)          # vaccine 1 covers lineage 1
   vt2  <- c(1L, 1L, 0L, 0L)          # vaccine 2 nests vaccine 1, adds lineage 2
+  aLv  <- c(6L, 18L, 36L, 60L)       # host age in MONTHS, same unit as AgeWindow
   tPt  <- c(-6, 0, 6, 12)
   mix  <- list(c(2,2,2,2), c(2,2,2,2), c(1,2,3,2), c(1,1,3,3))   # VT lineages decline
 
   rows <- do.call(rbind, lapply(seq_along(tPt), function(ti)
             do.call(rbind, lapply(seq_len(nDm), function(dd)
               data.frame(Time = tPt[ti], Dm = dd,
+                         Age  = rep(aLv, length.out = sum(mix[[ti]])),
                          lin  = rep(seq_len(nLin), mix[[ti]]))))))
 
   ## loci 1-4 are one-hot lineage markers, so genotype determines SC and VT profile,
@@ -28,16 +29,19 @@ make_fixture <- function(seed = 42L) {
                 1L, 0L)                          # fixed + absent: d0.keep drops both
   colnames(gene) <- sprintf("CLS%05d", seq_len(ncol(gene)))
 
-  meta <- data.frame(Time = rows$Time, Deme = paste0("D", rows$Dm),
-                     VT1 = vt1[rows$lin], VT2 = vt2[rows$lin],
-                     SC  = rows$lin)             # SC must be the LAST metadata column
+  ## column order: Time | Deme | Age | VT1 | VT2 | SC | genes   (SC LAST metadata)
+  meta <- data.frame(Time = rows$Time, Deme = paste0("D", rows$Dm), Age = rows$Age,
+                     VT1 = vt1[rows$lin], VT2 = vt2[rows$lin], SC = rows$lin)
   write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "raw", "data.tsv"),
               sep = "\t", row.names = FALSE, quote = FALSE)
 
-  ## staggered roll-out; D3 never receives VT2, exercising the vStart = Inf path
+  ## VT1 timing varies across demes with uptake held at 1, so D1-vs-D3 isolates
+  ## the roll-out date. D3 has no VT2 row, exercising the vStart = Inf path.
   write.table(data.frame(Deme       = c("D1","D1","D2","D2","D3"),
                          Vaccine    = c("VT1","VT2","VT1","VT2","VT1"),
-                         StartMonth = c(0, 6, 3, 9, 6)),
+                         StartMonth = c(0, 6, 3, 9, 9),
+                         AgeWindow  = c(24, 24, 24, 24, 24),
+                         Uptake     = c(1, .8, 1, .7, 1)),
               file.path(dir, "raw", "rollout.tsv"),
               sep = "\t", row.names = FALSE, quote = FALSE)
 
@@ -50,9 +54,8 @@ make_fixture <- function(seed = 42L) {
   write.table(c(11, 22, 33), file.path(dir, "raw", "seed.csv"),
               row.names = FALSE, col.names = FALSE, sep = ",")
 
-  ## link, not copy -- src/ holds the only copy of each script.
-  ## Linking the directory would not work: setwd() canonicalises, so ".." would
-  ## resolve back to the real repo root.
+  ## link, not copy -- src/ holds the only copy of each script. Linking the
+  ## directory would fail: setwd() canonicalises, so ".." would resolve to the repo root.
   for (f in c("src.r", "nfds.r", "setup.r", "model.r")) {
     tgt <- normalizePath(file.path(SRC_DIR, f), mustWork = TRUE)
     ok  <- suppressWarnings(file.symlink(tgt, file.path(dir, "src", f)))
@@ -71,22 +74,30 @@ stub_abcsmc <- function(model_list, prior_dist, ss_obs, ...) {
            list(...)), envir = globalenv())
   list(particles = data.frame(
          gen        = c(1, 1),
-         propStrong = c(.20, .30),  fSelected  = c(.10, .12),
+         propStrong = c(.20, .30),  fSelected = c(.10, .12),
          wSelected  = c(.001, .002), migration = c(.02, .03),
-         coInf      = c(0, .05),    vSelMod    = c(.1, .2), mWithin = c(.05, .10),
+         coInf      = c(0, .05),    mWithin   = c(.05, .10),
          vSelected1 = c(.10, .15),  vSelected2 = c(.08, .12)),
        thresholds = c(1, .5))
 }
 
 ##### keeps tests readable and immune to argument-order changes #####
 mn <- function(propStrong = .25, fSelected = .1, wSelected = .001, vSel = c(.2, .15),
-               migration = .02, coInf = 0, vSelMod = .1, mWithin = .05, ...)
-  m.nfds(propStrong, fSelected, wSelected, vSel, migration, coInf, vSelMod, mWithin, ...)
+               migration = .02, coInf = 0, mWithin = .05, ...)
+  m.nfds(propStrong, fSelected, wSelected, vSel, migration, coInf, mWithin, ...)
 
 p0 <- function(...) modifyList(
   list(propStrong = .25, fSelected = .1, wSelected = .001, migration = .02,
-       coInf = 0, vSelMod = .1, mWithin = .05, vSelected1 = .2, vSelected2 = .15),
+       coInf = 0, mWithin = .05, vSelected1 = .2, vSelected2 = .15),
   list(...))
+
+##### temporarily override a global, restoring it when the test block exits #####
+swap <- function(nm, value, env = parent.frame()) {
+  old <- get(nm, envir = globalenv())
+  do.call(on.exit, list(bquote(assign(.(nm), .(old), envir = globalenv())),
+                        add = TRUE), envir = env)
+  assign(nm, value, envir = globalenv())
+}
 
 ##### run setup.r (data prep only) or model.r (full pipeline); both cached #####
 load_model <- function(force = FALSE) {

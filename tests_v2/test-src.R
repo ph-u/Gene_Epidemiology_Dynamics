@@ -22,7 +22,6 @@ test_that("vtsc() tabulates into (VT profile x SC) x deme, class varying fastest
   expect_equal(sum(v), length(idx))
   expect_equal(v, as.vector(table(factor(vtsc.idx[idx], levels = seq_along(vtsc.lev)),
                                   factor(dm, levels = seq_len(nD)))))
-  ## position of class c in deme d is (d-1)*nLev + c
   expect_equal(which(v > 0), sort(unique((dm - 1) * length(vtsc.lev) + vtsc.idx[idx])))
 })
 

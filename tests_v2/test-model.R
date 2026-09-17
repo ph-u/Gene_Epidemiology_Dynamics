@@ -3,12 +3,13 @@ test_that("all four scripts parse", {
     expect_no_error(invisible(parse(file.path(SRC_DIR, f))))
 })
 
-test_that("demes and vaccines are detected and encoded as 1..n", {
+test_that("demes, vaccines and ages are detected", {
   load_model()
   expect_equal(nD, 3L); expect_equal(nVac, 2L)
   expect_equal(vtCols, c("VT1", "VT2"))
-  expect_setequal(unique(d0$Deme), seq_len(nD))
   expect_equal(dLev, c("D1", "D2", "D3"))
+  expect_setequal(unique(d0$Deme), seq_len(nD))
+  expect_equal(aLev, c(6, 18, 36, 60))
 })
 
 test_that("the frequency filter uses the PRE-vaccine window, not the whole series", {
@@ -16,6 +17,37 @@ test_that("the frequency filter uses the PRE-vaccine window, not the whole serie
   fPre <- colMeans(d0[d0$Time <= 0, gNam, drop = FALSE])
   expect_true(all(fPre > .05 & fPre < .95))
   expect_equal(length(gNam), 10L)          # 12 loci minus the fixed and absent ones
+})
+
+test_that("Age is metadata, not a genotype attribute", {
+  load_model()
+  expect_true("Age" %in% colnames(d0)[1:mEnd])
+  expect_false("Age" %in% colnames(d0.u))
+  expect_false("Age" %in% gNam)
+})
+
+test_that("aProb is a per-deme age distribution summing to one", {
+  load_model()
+  expect_equal(dim(aProb), c(length(aLev), nD))
+  expect_equal(colSums(aProb), rep(1, nD))
+  expect_true(all(aProb >= 0 & is.finite(aProb)))
+  for (dd in seq_len(nD))
+    expect_equal(aProb[, dd],
+                 as.numeric(table(factor(d0$Age[d0$Deme == dd], levels = aLev)) /
+                            sum(d0$Deme == dd)))
+})
+
+test_that("roll-out gives vStart, aCoh and uPt aligned on the same index", {
+  load_model()
+  for (m in list(vStart, aCoh, uPt)) expect_equal(dim(m), c(nVac, nD))
+  expect_equal(vStart["VT1", ], c(D1 = 0, D2 = 3, D3 = 9))
+  expect_equal(vStart["VT2", ], c(D1 = 6, D2 = 9, D3 = Inf))
+  expect_equal(aCoh["VT1", ],  c(D1 = 24, D2 = 24, D3 = 24))
+  expect_equal(uPt["VT1", ],   c(D1 = 1, D2 = 1, D3 = 1))
+  expect_equal(uPt["VT2", ],   c(D1 = .8, D2 = .7, D3 = 0))   # 0 where never introduced
+  expect_true(all(uPt >= 0 & uPt <= 1))
+  ## aCoh must be 0 exactly where vStart is Inf, or coverage is ill-defined
+  expect_equal(is.infinite(vStart), aCoh == 0)
 })
 
 test_that("eqm.pre is per-deme, isolate-weighted, L x nD", {
@@ -50,20 +82,6 @@ test_that("migrant probabilities are SC-balanced WITHIN each deme", {
   }
 })
 
-test_that("roll-out is deme- and vaccine-specific, with Inf where absent", {
-  load_model()
-  expect_equal(dim(vStart), c(nVac, nD))
-  expect_equal(vStart["VT1", ], c(D1 = 0, D2 = 3, D3 = 6))
-  expect_equal(vStart["VT2", ], c(D1 = 6, D2 = 9, D3 = Inf))
-  expect_equal(vMonth, seq(min(eQm$Month), max(eQm$Month)))
-})
-
-test_that("vMonth position i+1 is the month simulated at loop step i", {
-  load_model()
-  tIme <- (min(eQm$Month) + 1):nGen
-  expect_equal(vMonth[seq_along(tIme) + 1], tIme)
-})
-
 test_that("deme sizes partition kappa", {
   load_model()
   expect_equal(sum(dProp), 1); expect_equal(sum(kD), k)
@@ -80,14 +98,14 @@ test_that("G0 and VTmat are numeric 0/1 matrices aligned with d0.u", {
   expect_true(all(G0 %in% c(0, 1))); expect_true(all(VTmat %in% c(0, 1)))
 })
 
-test_that("genotype determines SC and VT profile -- migProb and paste assume it", {
+test_that("genotype determines SC and every VT profile, but may span demes and ages", {
   load_model()
   expect_equal(anyDuplicated(d0.u$tag), 0L)
   expect_true(all(tapply(d0$SC, d0$tag, function(z) length(unique(z))) == 1))
   for (v in vtCols)
     expect_true(all(tapply(d0[[v]], d0$tag, function(z) length(unique(z))) == 1))
-  ## but a genotype MAY span demes -- that is the point of a metapopulation
   expect_gt(max(tapply(d0$Deme, d0$tag, function(z) length(unique(z)))), 1)
+  expect_gt(max(tapply(d0$Age,  d0$tag, function(z) length(unique(z)))), 1)
 })
 
 test_that("the starting pool is one entry per pre-vaccine isolate, per deme", {
@@ -123,18 +141,27 @@ test_that("every sampling month falls inside the simulated generations", {
   expect_lt(min(eQm$Month), nGen)          # guards the descending (min+1):nGen trap
 })
 
-test_that("abcsmc receives the observed statistic and a 7 + nVac prior", {
+test_that("abcsmc receives the observed statistic and a 6 + nVac prior", {
   load_full()
   expect_identical(ABCSMC_CALL$ss_obs, mIg0)
-  expect_length(prior_dist$nfds, 7 + nVac)
+  expect_length(prior_dist$nfds, 6 + nVac)
   expect_setequal(vapply(prior_dist$nfds, `[`, character(1), 1),
                   c("propStrong", "fSelected", "wSelected", "migration",
-                    "coInf", "vSelMod", "mWithin", "vSelected1", "vSelected2"))
+                    "coInf", "mWithin", "vSelected1", "vSelected2"))
+  ## vSelMod was removed when coverage became computable from age
+  expect_false("vSelMod" %in% vapply(prior_dist$nfds, `[`, character(1), 1))
   expect_lte(ABCSMC_CALL$distance_threshold_min, ncol(mIg0) * log(2))
 })
 
+test_that("the export passes exactly the fitted parameters, in order", {
+  # regression: an extra positional argument once shifted mWithin into meanStandardize
+  txt <- paste(readLines(file.path(SRC_DIR, "model.r")), collapse = " ")
+  expect_false(grepl("vSelMod", txt))
+  for (nm in c("coInf", "mWithin", "vSelected"))
+    expect_true(grepl(paste0("pOst\\[\\[.*", nm, "|pOst\\$", nm), txt), info = nm)
+})
+
 test_that("setup.r defines no side effects that belong in model.r", {
-  # workers source setup.r; a set.seed() there would correlate every particle
   txt <- readLines(file.path(SRC_DIR, "setup.r"))
   txt <- txt[!grepl("^\\s*#", txt)]
   expect_false(any(grepl("set\\.seed", txt)))
@@ -148,12 +175,12 @@ test_that("model.r writes a prepared state a worker can load", {
   expect_true(file.exists(f))
   e <- new.env(); load(f, envir = e)
   for (o in c("m.nfds", "jsd", "nfds_jsd", "vtsc", "G0", "VTmat", "eqm.pre", "eqm.glb",
-              "mIg0", "selMode", "vStart", "vMonth", "mP0", "kD", "dProp",
-              "nD", "nVac", "d0.u", "nObs", "vtsc.lev", "tag.pre"))
+              "mIg0", "selMode", "vStart", "aCoh", "uPt", "aLev", "aProb",
+              "mP0", "kD", "dProp", "nD", "nVac", "d0.u", "nObs", "vtsc.lev", "tag.pre"))
     expect_true(exists(o, envir = e), info = o)
 })
 
-test_that("the export writes one genotype row per genotype per posterior particle", {
+test_that("the export writes genotype rows and per-deme counts", {
   load_full()
   dOut <- file.path(FIXTURE_DIR, "data", paste0("run_", sEed))
   f <- list.files(dOut, pattern = "^nfdsGenotypes_", full.names = TRUE)
@@ -161,21 +188,8 @@ test_that("the export writes one genotype row per genotype per posterior particl
   x <- read.csv(f)
   expect_equal(nrow(x), nrow(d0.u) * 2)          # stub returns two particles
   expect_setequal(unique(x$particle), 1:2)
-  expect_length(list.files(dOut, pattern = "\\.rds$"), 2)
-})
-
-test_that("the export passes every fitted parameter to m.nfds", {
-  # regression: the loop once passed 5 of 8 arguments, and pOst$vSelected no longer exists
-  txt <- paste(readLines(file.path(SRC_DIR, "model.r")), collapse = " ")
-  for (nm in c("coInf", "vSelMod", "mWithin", "vSelected"))
-    expect_true(grepl(paste0("pOst\\[\\[.*", nm, "|pOst\\$", nm), txt), info = nm)
-})
-
-test_that("the export records per-deme counts", {
-  load_full()
-  dOut <- file.path(FIXTURE_DIR, "data", paste0("run_", sEed))
-  x <- read.csv(list.files(dOut, pattern = "^nfdsGenotypes_", full.names = TRUE))
   expect_true(all(paste0("n_", dLev) %in% names(x)))
   expect_equal(rowSums(x[, paste0("n_", dLev)]), x$finalCount)
+  expect_length(list.files(dOut, pattern = "\\.rds$"), 2)
 })
 

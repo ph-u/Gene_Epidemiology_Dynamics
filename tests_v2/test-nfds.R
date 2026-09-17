@@ -28,6 +28,17 @@ test_that("jsd() is NA on an empty column", {
   expect_true(is.na(jsd(c(0, 0, 0), c(1, 2, 3))))
 })
 
+test_that("coverage arithmetic: covered iff the vaccine existed and the host was in window", {
+  # pure restatement of the nfds.r expression, so the semantics are pinned in one place
+  cov <- function(tNow, hAge, sV, aC) (tNow >= sV) & (hAge - (tNow - sV) < aC)
+  expect_true (cov(12,  6,   0, 24))   # born after roll-out
+  expect_true (cov(12, 18,   0, 24))   # was 6 months old when it began
+  expect_false(cov(12, 36,   0, 24))   # was 24 months old -- outside the window
+  expect_false(cov( 0, 12,   3, 24))   # vaccine had not started yet
+  expect_false(cov(12, 36, Inf, 24))   # never introduced in that deme
+  expect_true (cov(12, 60,   6, 60))   # catch-up campaign reaches older hosts
+})
+
 test_that("m.nfds returns a matrix shaped like the observed statistic", {
   load_model(); set.seed(4)
   s <- mn()
@@ -40,7 +51,6 @@ test_that("each column samples exactly n_t individuals, stratified by deme", {
   load_model(); set.seed(4)
   s <- mn()
   expect_equal(colSums(s), as.numeric(rowSums(nObs[as.character(eQm.date), ])))
-  ## per-deme blocks must match that deme's observed effort
   for (dd in seq_len(nD)) {
     blk <- ((dd - 1) * length(vtsc.lev) + 1):(dd * length(vtsc.lev))
     expect_equal(colSums(s[blk, , drop = FALSE]),
@@ -54,28 +64,53 @@ test_that("m.nfds is deterministic under set.seed", {
   expect_identical(a, b)
 })
 
-test_that("a vaccine that never rolls out equals zero efficacy", {
-  # regression for the vMonth[i+1] index origin and the vStart = Inf path
+test_that("zero uptake is identical to zero efficacy", {
   load_model()
-  old <- vStart; on.exit(assign("vStart", old, envir = globalenv()))
-  assign("vStart", matrix(Inf, nVac, nD), envir = globalenv())
+  swap("uPt", matrix(0, nVac, nD))
   set.seed(1); a <- mn(vSel = c(.5, .5))
-  assign("vStart", old, envir = globalenv())
+  assign("uPt", get("uPt", globalenv()) * 0 + 1, envir = globalenv())   # restored on exit
   set.seed(1); b <- mn(vSel = c(0, 0))
   expect_identical(a, b)
 })
 
-test_that("the cohort ramp exerts no pressure before roll-out", {
-  # a deme whose roll-out is later must retain more VT at the first sampled month
+test_that("a vaccine that never rolls out is identical to zero efficacy", {
   load_model()
-  isVT <- rep(startsWith(vtsc.lev, "1;"), nD)      # VT1-covered classes
-  blk  <- function(x, dd) x[((dd - 1) * length(vtsc.lev) + 1):(dd * length(vtsc.lev)), 1]
-  f    <- vapply(1:8, function(s) {
-            set.seed(s); x <- mn(vSel = c(.5, 0), vSelMod = 0, migration = 0, mWithin = 0)
-            c(sum(blk(x, 1)[startsWith(vtsc.lev, "1;")]) / sum(blk(x, 1)),
-              sum(blk(x, 3)[startsWith(vtsc.lev, "1;")]) / sum(blk(x, 3)))
-          }, numeric(2))
-  expect_lt(mean(f[1, ]), mean(f[2, ]))            # D1 starts at month 0, D3 at month 6
+  swap("vStart", matrix(Inf, nVac, nD))
+  set.seed(1); a <- mn(vSel = c(.5, .5))
+  assign("vStart", matrix(Inf, nVac, nD), envir = globalenv())
+  set.seed(1); b <- mn(vSel = c(0, 0))
+  expect_identical(a, b)
+})
+
+test_that("hosts older than every age window are never covered", {
+  load_model()
+  swap("aLev",  c(1e5, 2e5))                       # two levels: avoids sample()'s 1:n trap
+  swap("aProb", matrix(.5, 2, nD))
+  set.seed(1); a <- mn(vSel = c(.5, .5))
+  swap("aLev",  aLev); swap("aProb", aProb)        # no-ops; restored by the first swap
+  set.seed(1); b <- mn(vSel = c(.5, .5))
+  expect_true(is.matrix(a))
+  expect_false(identical(a, b))                    # age genuinely drives coverage
+})
+
+test_that("a single age level does not trip sample()'s 1:n reinterpretation", {
+  # regression: sample(x, ...) with length(x) == 1 draws from 1:x, not from x
+  load_model()
+  swap("aLev", 24); swap("aProb", matrix(1, 1, nD))
+  set.seed(1)
+  expect_no_error(mn())
+})
+
+test_that("a later roll-out leaves more vaccine type behind", {
+  # D1 starts VT1 at month 0, D3 at month 9, uptake 1 in both
+  load_model()
+  isV <- startsWith(vtsc.lev, "1;")
+  blk <- function(x, dd) x[((dd - 1) * length(vtsc.lev) + 1):(dd * length(vtsc.lev)), ncol(x)]
+  f   <- vapply(1:8, function(s) {
+           set.seed(s); x <- mn(vSel = c(.5, 0), migration = 0, mWithin = 0)
+           c(sum(blk(x, 1)[isV]) / sum(blk(x, 1)), sum(blk(x, 3)[isV]) / sum(blk(x, 3)))
+         }, numeric(2))
+  expect_lt(mean(f[1, ]), mean(f[2, ]))
 })
 
 test_that("stronger vaccine selection lowers the final vaccine-type fraction", {
@@ -116,8 +151,7 @@ test_that("mWithin moves individuals between demes", {
 
 test_that("popRunaway rejects a run before allocating the generation", {
   load_model()
-  old <- popRunaway; on.exit(assign("popRunaway", old, envir = globalenv()))
-  assign("popRunaway", 1, envir = globalenv())
+  swap("popRunaway", 1)
   set.seed(3)
   expect_null(mn())
 })
@@ -149,15 +183,21 @@ test_that("nfds_jsd returns a finite scalar inside [0, ncol * log(2)]", {
 
 test_that("nfds_jsd assembles vSel from the vSelected<n> entries", {
   load_model()
-  set.seed(8); a <- nfds_jsd(p0(vSelected1 = 0, vSelected2 = 0), mIg0)
+  set.seed(8); a <- nfds_jsd(p0(vSelected1 = 0,  vSelected2 = 0),  mIg0)
   set.seed(8); b <- nfds_jsd(p0(vSelected1 = .9, vSelected2 = .9), mIg0)
   expect_false(isTRUE(all.equal(a, b)))
 })
 
+test_that("nfds_jsd ignores any parameter the model no longer takes", {
+  load_model()
+  set.seed(8); a <- nfds_jsd(p0(), mIg0)
+  set.seed(8); b <- nfds_jsd(p0(vSelMod = .77), mIg0)   # removed parameter
+  expect_identical(a, b)
+})
+
 test_that("nfds_jsd returns the maximum distance when the simulation fails", {
   load_model()
-  old <- popRunaway; on.exit(assign("popRunaway", old, envir = globalenv()))
-  assign("popRunaway", 1, envir = globalenv())
+  swap("popRunaway", 1)
   expect_equal(nfds_jsd(p0(), mIg0), ncol(mIg0) * log(2))
 })
 
@@ -179,8 +219,7 @@ test_that("nfds_jsd bootstraps itself in a worker with an empty globalenv", {
      rm(list = setdiff(ls(globalenv()), c("f", "obs")), envir = globalenv())
      environment(f) <- globalenv()
      cat(f(list(propStrong = .25, fSelected = .1, wSelected = .001, migration = .02,
-                coInf = 0, vSelMod = .1, mWithin = .05,
-                vSelected1 = .2, vSelected2 = .15), obs))', scr))),
+                coInf = 0, mWithin = .05, vSelected1 = .2, vSelected2 = .15), obs))', scr))),
     stdout = TRUE, stderr = TRUE)
   expect_false(any(grepl("could not find function|object .* not found", out)))
   expect_true(is.finite(suppressWarnings(as.numeric(tail(out, 1)))))

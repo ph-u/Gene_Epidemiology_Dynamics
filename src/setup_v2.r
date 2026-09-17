@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 # author: ph-u, nickjcroucher
 # script: setup.r
-# desc: NFDS ABCSMC -- metapopulation, multi-vaccine, graded roll-out, co-infection
-# in: Rscript setup.r [../raw/input.csv] [seed entry]
+# desc: NFDS ABCSMC -- metapopulation, multi-vaccine, age-cohort roll-out, co-infection
+# in: Rscript setup.r [../raw/input.csv] [seed entry]  (usually sourced by model.r)
 # out: NA
 # arg: 1
-# date: 20260918
+# date: 20260918 (age stratification), 20260918 (metapopulation, multi-vaccine), 20260819
 
 ##### env #####
 source("src.r"); source("nfds.r")
@@ -19,10 +19,11 @@ k          = as.numeric(g("population"))
 popRunaway = 10 * k
 
 ##### Data #####
-## column order: Time | Deme | VT1..VTn | SC | <gene columns>   (SC = LAST metadata column)
+## column order: Time | Deme | Age | VT1..VTn | SC | <gene columns>
+## SC must be the LAST metadata column; Age is in months
 d0   = read.table(g("data"), header = T, sep = "\t")
 mEnd = which(colnames(d0) == "SC")
-stopifnot(all(c("Time", "Deme", "SC") %in% colnames(d0)[1:mEnd]))
+stopifnot(all(c("Time", "Deme", "Age", "SC") %in% colnames(d0)[1:mEnd]))
 
 dLev    = sort(unique(d0$Deme))
 d0$Deme = match(d0$Deme, dLev)                       # demes as 1..nD
@@ -31,8 +32,8 @@ vtCols  = grep("^VT[0-9]+$", colnames(d0), value = TRUE)
 nVac    = length(vtCols)
 stopifnot(nVac > 0, nD > 0)
 
-## intermediate-frequency filter on the PRE-vaccine window only:
-## over 30 years a gene that swept during the study would otherwise be dropped
+## intermediate-frequency filter on the PRE-vaccine window only: over 30 years a
+## gene that swept during the study would otherwise be dropped for the wrong reason
 pre = d0$Time <= 0
 stopifnot(sum(pre) > 0)
 fPre    = colMeans(d0[pre, -(1:mEnd), drop = FALSE])
@@ -48,11 +49,14 @@ d0$tag  = d0.u$tag[match(d0$data, d0.u$data)]
 d0$data = d0.u$data = NULL
 
 ##### Genotype attributes #####
+## Deme and Age are HOST properties and deliberately absent from d0.u:
+## a genotype may occur in several demes and at any host age
 d0.u[vtCols] = d0[match(d0.u$tag, d0$tag), vtCols]
 d0.u$SC      = d0$SC[match(d0.u$tag, d0$tag)]
 ## migProb and the class definition both assume genotype -> (SC, VT profile) is one-to-one
 stopifnot(!anyDuplicated(d0.u$tag),
           all(tapply(d0$SC, d0$tag, function(z) length(unique(z))) == 1))
+for(v in vtCols) stopifnot(all(tapply(d0[[v]], d0$tag, function(z) length(unique(z))) == 1))
 
 VTmat = as.matrix(d0.u[, vtCols, drop = FALSE]); storage.mode(VTmat) = "double"
 G0    = as.matrix(d0.u[, gNam]);                 storage.mode(G0)    = "double"
@@ -69,7 +73,7 @@ eQm       = data.frame(Month = sort(unique(d0$Time)))
 eQm[gNam] = t(sapply(split(d0[, gNam, drop = FALSE], d0$Time), colMeans))
 nGen      = max(eQm$Month, 1)
 eQm.date  = eQm$Month[eQm$Month > 0]
-stopifnot(all(eQm.date %in% seq_len(nGen)))
+stopifnot(all(eQm.date %in% seq_len(nGen)), min(eQm$Month) < nGen)
 
 ## PER-DEME pre-vaccination equilibrium frequencies (L x nD), isolate-weighted.
 ## NFDS is local: each deme's genes are selected against that deme's own equilibrium.
@@ -81,21 +85,38 @@ eqm.pre = vapply(seq_len(nD), function(dd){
 stopifnot(nrow(eqm.pre) == length(gNam), ncol(eqm.pre) == nD)
 
 ## GLOBAL pre-vaccination frequencies -- used only to rank loci into strong/weak
-## classes, because that is a property of the gene, not of a deme.
+## classes, because that is a property of the gene, not of a deme
 eqm.glb = as.numeric(colMeans(d0[pre, gNam, drop = FALSE]))
 
-##### Strong / weak NFDS classes (global ranking) #####
+##### Group genes that face strong / weak selection (global ranking) #####
 selMode = (colMeans(eQm[eQm$Month > 0, gNam, drop = FALSE]) - eqm.glb)^2 /
-          (1 - eqm.glb * (1 - eqm.glb))
+  (1 - eqm.glb * (1 - eqm.glb))
 selMode = data.frame(gene = gNam, strength = as.numeric(selMode), category = "weak")
 
-##### Vaccine roll-out: deme- and vaccine-specific #####
-rOut      = read.table(g("rollout"), header = T, sep = "\t")   # Deme | Vaccine | StartMonth
+##### Vaccine roll-out: deme- and vaccine-specific, with an age window #####
+rOut      = read.table(g("rollout"), header = T, sep = "\t")  # Deme|Vaccine|StartMonth|AgeWindow
 rOut$Deme = match(rOut$Deme, dLev)
-stopifnot(all(rOut$Vaccine %in% vtCols), !anyNA(rOut$Deme))
+stopifnot(all(rOut$Vaccine %in% vtCols), !anyNA(rOut$Deme),
+          all(c("StartMonth", "AgeWindow") %in% colnames(rOut)), all(rOut$AgeWindow > 0))
+vIx    = cbind(match(rOut$Vaccine, vtCols), rOut$Deme)
 vStart = matrix(Inf, nVac, nD, dimnames = list(vtCols, dLev))  # Inf = never introduced there
-vStart[cbind(match(rOut$Vaccine, vtCols), rOut$Deme)] = rOut$StartMonth
-vMonth = seq(min(eQm$Month), max(eQm$Month))
+uPt      = matrix(0, nVac, nD, dimnames = list(vtCols, dLev))  # 0 where never introduced
+uPt[vIx] = if("Uptake" %in% colnames(rOut)) rOut$Uptake else 1
+stopifnot(all(uPt >= 0), all(uPt <= 1))
+aCoh   = matrix(0,   nVac, nD, dimnames = list(vtCols, dLev))  # vaccination age window, months
+vStart[vIx] = rOut$StartMonth
+aCoh[vIx]   = rOut$AgeWindow
+vMonth = seq(min(eQm$Month), max(eQm$Month))                   # bounds reference only
+
+##### Host age structure: carriage age distribution per deme #####
+## NOTE: derived from the SAMPLED isolates, so this is the observed carriage age
+## distribution. If surveillance is age-biased, supply an independent distribution.
+aLev  = sort(unique(d0$Age))
+aProb = vapply(seq_len(nD), function(dd)
+  as.numeric(table(factor(d0$Age[d0$Deme == dd], levels = aLev))),
+  numeric(length(aLev)))
+aProb = t(t(aProb) / colSums(aProb))                           # nA x nD, columns sum to 1
+stopifnot(all(abs(colSums(aProb) - 1) < 1e-8), all(is.finite(aProb)))
 
 ##### Deme sizes: kappa allocation and external-immigrant weighting #####
 dProp = as.numeric(table(factor(d0$Deme, levels = seq_len(nD)))) / nrow(d0)
@@ -125,6 +146,6 @@ mIg0 = vapply(eQm.date, function(tt){
   vtsc(match(d0$tag[s], d0.u$tag), d0$Deme[s])
 }, numeric(length(vtsc.lev) * nD))
 
-message(sprintf("classes = %d (%d VT|SC x %d demes) | zero cells = %.1f%% | median isolates/timepoint = %.0f",
-                nrow(mIg0), length(vtsc.lev), nD, 100 * mean(mIg0 == 0), median(colSums(mIg0))))
-
+message(sprintf("classes = %d (%d VT|SC x %d demes) | zero cells = %.1f%% | median isolates/timepoint = %.0f | ages = %d | params = %d",
+                nrow(mIg0), length(vtsc.lev), nD, 100 * mean(mIg0 == 0),
+                median(colSums(mIg0)), length(aLev), 6 + nVac))
