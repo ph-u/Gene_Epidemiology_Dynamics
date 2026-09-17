@@ -22,8 +22,10 @@ bcod = function(df = unique(d0[,-(1:2)])){
   return(apply(b,1,paste, collapse = "")[1:nrow(df)])
 }
 
-##### VT*SC distribution vector #####
-vtsc = function(idx, cls = vtsc.idx, nLev = length(vtsc.lev)){
+##### VT*SC distribution vector (demographics aware) #####
+# vtsc = function(idx, dm, nLev = length(vtsc.lev)){ # v2
+#   tabulate((dm - 1) * nLev + vtsc.idx[idx], nbins = nLev * nD)
+# }
+vtsc = function(idx, cls = vtsc.idx, nLev = length(vtsc.lev)){ # v1
   return(tabulate(cls[idx], nbins = nLev))
 }
-

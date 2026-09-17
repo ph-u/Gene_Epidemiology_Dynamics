@@ -73,4 +73,3 @@ stopifnot(all(eQm.date %in% seq_len(nGen)))
 ##### Migration probability (VT & SC balanced, 2017 paper) #####
 mIg0 = c(); for(i in 1:length(eQm.date)){ mIg0 = c(mIg0, vtsc(match(d0$tag[which(d0$Time == eQm.date[i])], d0.u$tag))) };rm(i)
 mIg0 = matrix(mIg0, ncol = length(eQm.date))
-

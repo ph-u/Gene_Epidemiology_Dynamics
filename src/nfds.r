@@ -23,7 +23,7 @@ m.nfds = function(propStrong, fSelected, wSelected, vSelected, migration, meanSt
   mProb = c(mP0,  rep(0, hEad));  tagU  = c(tag0, rep(NA, hEad))
   clsU  = c(vtsc.idx, rep(NA, hEad))
   bOrn  = c(rep(0, nrow(G0)), rep(NA, hEad)) # generation of origin
-  pAra  = c(rep(NA_integer_, nrow(G0) + hEad)) # parent genotype row
+  pAra  = c(rep(NA, nrow(G0) + hEad)) # parent genotype row
   nU    = nrow(G0) # active rows
 
   ##### selection pressure per gene #####
@@ -103,4 +103,3 @@ nfds_jsd = function(x, ss_obs){
   if(!is.finite(d)){ return(ncol(ss_obs) * log(2)) } # output does not match data
   return(d)
 }
-

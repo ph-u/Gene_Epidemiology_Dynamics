@@ -10,10 +10,10 @@
 #BSUB -G team377f
 #BSUB -o ../work/pj01-%J-%I.o
 #BSUB -e ../work/pj01-%J-%I.e
-#BSUB -q week
-#BSUB -n 10
-#BSUB -M 6000
-#BSUB -R "select[mem>6000] rusage[mem=6000] span[hosts=1]"
+#BSUB -q basement
+#BSUB -n 20
+#BSUB -M 12000
+#BSUB -R "select[mem>12000] rusage[mem=12000] span[hosts=1]"
 #BSUB -J "gdy[1-mAx]"
 
 PATH="/software/isg/private/wrappers/apptainer/1.4.0:$PATH"

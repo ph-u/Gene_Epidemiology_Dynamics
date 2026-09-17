@@ -36,13 +36,13 @@ prior_dist <- list(nfds = list(c("propStrong", "unif", 0, 1),
                                c("migration", "unif", 0, 1)))
 
 ##### Calculate distance_threshold_min #####
-d = replicate(200, nfds_jsd(list(
-  propStrong = runif(1, as.numeric(prior_dist[[1]][1][[1]][3]), as.numeric(prior_dist[[1]][1][[1]][4])),
-  fSelected  = runif(1, as.numeric(prior_dist[[1]][2][[1]][3]), as.numeric(prior_dist[[1]][2][[1]][4])),
-  wSelected  = runif(1, as.numeric(prior_dist[[1]][3][[1]][3]), as.numeric(prior_dist[[1]][3][[1]][4])),
-  vSelected  = runif(1, as.numeric(prior_dist[[1]][4][[1]][3]), as.numeric(prior_dist[[1]][4][[1]][4])),
-  migration  = runif(1, as.numeric(prior_dist[[1]][5][[1]][3]), as.numeric(prior_dist[[1]][5][[1]][4]))
-  ), mIg0))
+# d = replicate(200, nfds_jsd(list(
+#   propStrong = runif(1, as.numeric(prior_dist[[1]][1][[1]][3]), as.numeric(prior_dist[[1]][1][[1]][4])),
+#   fSelected  = runif(1, as.numeric(prior_dist[[1]][2][[1]][3]), as.numeric(prior_dist[[1]][2][[1]][4])),
+#   wSelected  = runif(1, as.numeric(prior_dist[[1]][3][[1]][3]), as.numeric(prior_dist[[1]][3][[1]][4])),
+#   vSelected  = runif(1, as.numeric(prior_dist[[1]][4][[1]][3]), as.numeric(prior_dist[[1]][4][[1]][4])),
+#   migration  = runif(1, as.numeric(prior_dist[[1]][5][[1]][3]), as.numeric(prior_dist[[1]][5][[1]][4]))
+#   ), mIg0))
 
 ##### ABCSMC-NFDS (first draft by Claude.ai) #####
 res <- abcsmc(
@@ -74,4 +74,3 @@ for(p in seq_len(nrow(pOst))){
   saveRDS(list(G = r$G, meta = gT), file.path(oUtDir, paste0("nfdsG_", sP, ".rds")))
 };rm(p)
 write.csv(do.call(rbind, oUt), file.path(oUtDir, paste0("nfdsGenotypes_", gsub(" ", "-", date()), "_", sEed, ".csv")), row.names = F, quote = F)
-
