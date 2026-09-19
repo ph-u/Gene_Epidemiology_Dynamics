@@ -7,9 +7,11 @@
 # arg: 0
 # date: 20260901
 
+dAte = "20260919"
+
 ##### env #####
 source("colour.r")
-f.in = list.files("../data/20260908", pattern = "all_", full.names = T)
+f.in = list.files(paste0("../data/",dAte), pattern = "all_", full.names = T)
 sEed = read.table(text = gsub("_","-",basename(f.in)), sep = "-")[,2]
 for(i in seq_len(length(f.in))){
   d0 = read.csv(f.in[i], header = T)
@@ -20,8 +22,8 @@ d.all$plot = d.all$dist1 < quantile(d.all$dist1, probs = .1)
 # d.all$plot = d.all$dist1 %in% d.all$dist1[order(d.all$dist1)[seq_len(9000)]]
 
 ## Re-transformation to parameter values in paper
-d.all$fSelected = exp(d.all$fSelected)
-d.all$wSelected = exp(d.all$wSelected)
+# d.all$fSelected = exp(d.all$fSelected)
+# d.all$wSelected = exp(d.all$wSelected)
 d.all$vSelected = d.all$vSelected * .5
 d.all$migration = d.all$migration * .2
 
@@ -38,9 +40,10 @@ par(mfrow = c(3,2), mar = c(5,4,1,0)+.1)
 for(i in seq_len(length(tRuth))){
   for(i0 in seq_len(length(sEed))){
     if(i %in% 3){
-      xLim = c(0,.1)
+      xLim = c(0,.05)
     }else{
-      xLim = range(quantile(d.all[,i+2], probs = c(.05,.95)), tRuth[i], t1[i], t2[i])
+      xLim = range(quantile(d.all[,i+2], probs = c(0,1)), tRuth[i], t1[i], t2[i])
+      print(xLim)
     }
     hist(d.all[which(d.all$f.in==sEed[i0] & d.all$plot == T),i+2], xlim = xLim, breaks = 100, freq = T, xlab = paste0(ifelse(i %in% 0,"log( ", ""), colnames(d.all)[i+2], ifelse(i %in% 0," )", "")), main = "", border = NA, col = paste0(substr(cBp[i0],1,7),"33"), add = !(i0==1))
   };rm(i0)

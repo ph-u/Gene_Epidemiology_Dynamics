@@ -30,7 +30,7 @@ set.seed(sEed)
 #tRuth = c(sigma_f = 0.15, sigma_v = 0.10, m = 0.02, pf = 0.25, sigma_w = 0.003) # 2017 publication
 #nLst = c(0,1,1e-6,.22,1e-6,.15,0,.5,0,.2)
 prior_dist <- list(nfds = list(c("propStrong", "unif", 0, 1),
-                               c("fSelected", "unif", 1e-6, .22), # -14, -1
+                               c("fSelected", "unif", 1e-6, 1), # -14, -1;  1e-6, .22
                                c("wSelected", "unif", 1e-6, .15), # -14, -1
                                c("vSelected", "unif", 0, 1),
                                c("migration", "unif", 0, 1)))

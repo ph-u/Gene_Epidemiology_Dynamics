@@ -6,3 +6,4 @@ genes for recombination mechanism,SPD_2063;SPD_2064;SPD_2065;SPD_1739;SPD_1015;S
 population,200000,host population size
 percentage initial infected,25,%
 rollout,../raw/rollout.tsv,
+vaccine start month,0,

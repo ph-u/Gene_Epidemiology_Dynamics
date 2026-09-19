@@ -7,11 +7,13 @@
 # arg: 0
 # date: 20260903
 
+dAte = "20260919"
+
 ##### env #####
 source("colour.r")
 #sEed = read.csv("../raw/seed.csv", header = F)
 #rAw = read.table("../data/mass.input", header = T, sep = "\t")
-f.in = list.files("../data/20260908", pattern = "all_", full.names = T)
+f.in = list.files(paste0("../data/",dAte), pattern = "all_", full.names = T)
 sEed = read.table(text = gsub("_","-",basename(f.in)), sep = "-")[,2]
 for(i in seq_len(length(f.in))){
   d0 = read.csv(f.in[i], header = T)
