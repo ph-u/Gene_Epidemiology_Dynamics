@@ -11,7 +11,7 @@
 source("src.r");source("nfds.r")
 if(!exists("argv")){
   argv = commandArgs(T)
-  if(length(argv) != 2){ argv = c("../raw/input.csv", 1) }
+  if(length(argv) != 2){ argv = c("../data/input.csv", 1) }
 }
 f.in = read.csv(argv[1], header = T)
 

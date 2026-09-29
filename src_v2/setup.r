@@ -1,11 +1,13 @@
 #!/usr/bin/env Rscript
 # author: ph-u, nickjcroucher
 # script: setup.r
-# desc: NFDS ABCSMC -- metapopulation, multi-vaccine, age-cohort roll-out, co-infection
+# desc: NFDS ABCSMC v2 -- data preparation
+# Features: metapopulation | multi-vaccine | host age structure | co-infection |
+#           heterogeneous migration matrix | infection history
 # in: Rscript setup.r [../raw/input.csv] [seed entry]  (usually sourced by model.r)
 # out: NA
 # arg: 1
-# date: 20260918 (age stratification), 20260918 (metapopulation, multi-vaccine), 20260819
+# date: 20260919
 
 ##### env #####
 source("src.r"); source("nfds.r")
@@ -19,21 +21,29 @@ k          = as.numeric(g("population"))
 popRunaway = 10 * k
 
 ##### Data #####
-## column order: Time | Deme | Age | VT1..VTn | SC | <gene columns>
-## SC must be the LAST metadata column; Age is in months
+## Column order: Time | Deme | Age | VT1..VTn | SC | <gene columns>
+## Time  = month (integer; 0 = earliest vaccine introduction anywhere)
+## Deme  = site label, e.g. "UK", "NL"
+## Age   = host age in MONTHS at time of sampling
+## SC    = sequence cluster -- must be the LAST metadata column
 d0   = read.table(g("data"), header = T, sep = "\t")
 mEnd = which(colnames(d0) == "SC")
-stopifnot(all(c("Time", "Deme", "Age", "SC") %in% colnames(d0)[1:mEnd]))
+stopifnot(all(c("Time","Deme","Age","SC") %in% colnames(d0)[1:mEnd]))
 
+## === FEATURE: METAPOPULATION ===
+## Encode deme labels as integers 1..nD so they index into matrices.
 dLev    = sort(unique(d0$Deme))
-d0$Deme = match(d0$Deme, dLev)                       # demes as 1..nD
+d0$Deme = match(d0$Deme, dLev)
 nD      = length(dLev)
-vtCols  = grep("^VT[0-9]+$", colnames(d0), value = TRUE)
-nVac    = length(vtCols)
+
+## === FEATURE: MULTIPLE VACCINES ===
+vtCols = grep("^VT[0-9]+$", colnames(d0), value = TRUE)
+nVac   = length(vtCols)
 stopifnot(nVac > 0, nD > 0)
 
-## intermediate-frequency filter on the PRE-vaccine window only: over 30 years a
-## gene that swept during the study would otherwise be dropped for the wrong reason
+##### Intermediate-frequency filter (pre-vaccine window only) #####
+## Over 30 years a gene that swept during the study would be removed by a
+## whole-series filter -- that is the wrong reason.  Restrict to Time <= 0.
 pre = d0$Time <= 0
 stopifnot(sum(pre) > 0)
 fPre    = colMeans(d0[pre, -(1:mEnd), drop = FALSE])
@@ -49,11 +59,10 @@ d0$tag  = d0.u$tag[match(d0$data, d0.u$data)]
 d0$data = d0.u$data = NULL
 
 ##### Genotype attributes #####
-## Deme and Age are HOST properties and deliberately absent from d0.u:
-## a genotype may occur in several demes and at any host age
+## Deme and Age are HOST properties -- the same genotype appears in many demes
+## and at many ages.  They are NOT stored in d0.u.
 d0.u[vtCols] = d0[match(d0.u$tag, d0$tag), vtCols]
 d0.u$SC      = d0$SC[match(d0.u$tag, d0$tag)]
-## migProb and the class definition both assume genotype -> (SC, VT profile) is one-to-one
 stopifnot(!anyDuplicated(d0.u$tag),
           all(tapply(d0$SC, d0$tag, function(z) length(unique(z))) == 1))
 for(v in vtCols) stopifnot(all(tapply(d0[[v]], d0$tag, function(z) length(unique(z))) == 1))
@@ -63,20 +72,20 @@ G0    = as.matrix(d0.u[, gNam]);                 storage.mode(G0)    = "double"
 tag0  = d0.u$tag
 sc0   = d0.u$SC
 
-## summary-statistic classes: VT profile x SC   (deme is added at sampling time)
+## Summary-statistic classes: VT profile x SC (deme added at sampling time)
 d0.u$paste = do.call(paste, c(d0.u[vtCols], list(d0.u$SC), sep = ";"))
 vtsc.lev   = sort(unique(d0.u$paste))
 vtsc.idx   = match(d0.u$paste, vtsc.lev)
 
-##### Equilibrium #####
+##### Equilibrium gene frequencies #####
 eQm       = data.frame(Month = sort(unique(d0$Time)))
 eQm[gNam] = t(sapply(split(d0[, gNam, drop = FALSE], d0$Time), colMeans))
 nGen      = max(eQm$Month, 1)
 eQm.date  = eQm$Month[eQm$Month > 0]
 stopifnot(all(eQm.date %in% seq_len(nGen)), min(eQm$Month) < nGen)
 
-## PER-DEME pre-vaccination equilibrium frequencies (L x nD), isolate-weighted.
-## NFDS is local: each deme's genes are selected against that deme's own equilibrium.
+## Per-DEME pre-vaccination equilibrium (L x nD, isolate-weighted).
+## NFDS is local: each deme's bacteria are selected against that deme's equilibrium.
 eqm.pre = vapply(seq_len(nD), function(dd){
   s = pre & d0$Deme == dd
   if(!any(s)) stop("deme ", dLev[dd], " has no pre-vaccination isolates")
@@ -84,52 +93,54 @@ eqm.pre = vapply(seq_len(nD), function(dd){
 }, numeric(length(gNam)))
 stopifnot(nrow(eqm.pre) == length(gNam), ncol(eqm.pre) == nD)
 
-## GLOBAL pre-vaccination frequencies -- used only to rank loci into strong/weak
-## classes, because that is a property of the gene, not of a deme
+## Global pre-vaccination equilibrium -- used ONLY to rank loci into strong/weak classes.
 eqm.glb = as.numeric(colMeans(d0[pre, gNam, drop = FALSE]))
 
-##### Group genes that face strong / weak selection (global ranking) #####
+##### Strong / weak NFDS locus ranking #####
 selMode = (colMeans(eQm[eQm$Month > 0, gNam, drop = FALSE]) - eqm.glb)^2 /
-  (1 - eqm.glb * (1 - eqm.glb))
+          (1 - eqm.glb * (1 - eqm.glb))
 selMode = data.frame(gene = gNam, strength = as.numeric(selMode), category = "weak")
 
-##### Vaccine roll-out: deme- and vaccine-specific, with an age window #####
-rOut      = read.table(g("rollout"), header = T, sep = "\t")  # Deme|Vaccine|StartMonth|AgeWindow
+##### === FEATURE: MULTIPLE VACCINES === #####
+## Roll-out table: Deme | Vaccine | StartMonth | AgeWindow | Uptake
+rOut      = read.table(g("rollout"), header = T, sep = "\t")
 rOut$Deme = match(rOut$Deme, dLev)
 stopifnot(all(rOut$Vaccine %in% vtCols), !anyNA(rOut$Deme),
-          all(c("StartMonth", "AgeWindow") %in% colnames(rOut)), all(rOut$AgeWindow > 0))
+          all(c("StartMonth","AgeWindow") %in% colnames(rOut)), all(rOut$AgeWindow > 0))
 vIx    = cbind(match(rOut$Vaccine, vtCols), rOut$Deme)
-vStart = matrix(Inf, nVac, nD, dimnames = list(vtCols, dLev))  # Inf = never introduced there
-uPt      = matrix(0, nVac, nD, dimnames = list(vtCols, dLev))  # 0 where never introduced
-uPt[vIx] = if("Uptake" %in% colnames(rOut)) rOut$Uptake else 1
-stopifnot(all(uPt >= 0), all(uPt <= 1))
-aCoh   = matrix(0,   nVac, nD, dimnames = list(vtCols, dLev))  # vaccination age window, months
+vStart = matrix(Inf, nVac, nD, dimnames = list(vtCols, dLev))
+aCoh   = matrix(0,   nVac, nD, dimnames = list(vtCols, dLev))
+uPt    = matrix(0,   nVac, nD, dimnames = list(vtCols, dLev))
 vStart[vIx] = rOut$StartMonth
 aCoh[vIx]   = rOut$AgeWindow
-vMonth = seq(min(eQm$Month), max(eQm$Month))                   # bounds reference only
+uPt[vIx]    = if("Uptake" %in% colnames(rOut)) rOut$Uptake else 1
+stopifnot(all(uPt >= 0), all(uPt <= 1))
+vMonth = seq(min(eQm$Month), max(eQm$Month))    # month sequence (bounds reference only)
 
-##### Host age structure: carriage age distribution per deme #####
-## NOTE: derived from the SAMPLED isolates, so this is the observed carriage age
-## distribution. If surveillance is age-biased, supply an independent distribution.
+##### === FEATURE: HOST AGE STRUCTURE === #####
+## Probability that a bacterium is in a person of a given age, per deme.
+## Derived from the sampled isolates; if surveillance is age-biased, supply
+## an independent distribution here.
 aLev  = sort(unique(d0$Age))
 aProb = vapply(seq_len(nD), function(dd)
-  as.numeric(table(factor(d0$Age[d0$Deme == dd], levels = aLev))),
-  numeric(length(aLev)))
-aProb = t(t(aProb) / colSums(aProb))                           # nA x nD, columns sum to 1
+          as.numeric(table(factor(d0$Age[d0$Deme == dd], levels = aLev))),
+          numeric(length(aLev)))
+aProb = t(t(aProb) / colSums(aProb))            # nA x nD, columns sum to 1
 stopifnot(all(abs(colSums(aProb) - 1) < 1e-8), all(is.finite(aProb)))
 
-##### Deme sizes: kappa allocation and external-immigrant weighting #####
+##### === FEATURE: METAPOPULATION === #####
+## Partition carrying capacity in proportion to deme size.
 dProp = as.numeric(table(factor(d0$Deme, levels = seq_len(nD)))) / nrow(d0)
-kD    = k * dProp                                              # per-deme carrying capacity
+kD    = k * dProp
 stopifnot(all(kD > 0))
 
-##### External immigrant pool: SC-balanced WITHIN each deme (U x nD, columns sum to 1) #####
+## External immigrant pool: SC-balanced WITHIN each deme (U x nD, columns sum to 1).
 mP0 = vapply(seq_len(nD), function(dd){
   s     = d0$Deme == dd
-  nGeno = as.numeric(table(factor(d0$tag[s], levels = d0.u$tag)))   # n_{d,u}
-  nSC   = table(factor(d0$SC[s], levels = sort(unique(d0$SC))))     # n_{d,s}
-  nSCu  = as.numeric(nSC[as.character(d0.u$SC)])                    # n_{d,s(u)}
-  Sd    = sum(nSC > 0)                                              # SCs present in deme d
+  nGeno = as.numeric(table(factor(d0$tag[s], levels = d0.u$tag)))
+  nSC   = table(factor(d0$SC[s], levels = sort(unique(d0$SC))))
+  nSCu  = as.numeric(nSC[as.character(d0.u$SC)])
+  Sd    = sum(nSC > 0)
   ifelse(nGeno > 0, nGeno / (Sd * nSCu), 0)
 }, numeric(nrow(d0.u)))
 stopifnot(all(abs(colSums(mP0) - 1) < 1e-8))
@@ -138,14 +149,18 @@ migIdx = seq_len(nrow(d0.u))
 ##### Starting pools and sampling effort #####
 tag.pre = lapply(seq_len(nD), function(dd) match(d0$tag[pre & d0$Deme == dd], d0.u$tag))
 stopifnot(all(lengths(tag.pre) > 0))
-nObs = table(factor(d0$Time, levels = eQm$Month), factor(d0$Deme, levels = seq_len(nD)))
+nObs = table(factor(d0$Time, levels = eQm$Month),
+             factor(d0$Deme, levels = seq_len(nD)))
 
-##### Observed summary statistic: (VT profile x SC x deme) rows, timepoints as columns #####
+##### Observed summary statistic #####
 mIg0 = vapply(eQm.date, function(tt){
   s = which(d0$Time == tt)
   vtsc(match(d0$tag[s], d0.u$tag), d0$Deme[s])
 }, numeric(length(vtsc.lev) * nD))
 
-message(sprintf("classes = %d (%d VT|SC x %d demes) | zero cells = %.1f%% | median isolates/timepoint = %.0f | ages = %d | params = %d",
+message(sprintf(paste("classes = %d (%d VT|SC x %d demes) | zero cells = %.1f%%",
+                      "| median isolates/timepoint = %.0f | ages = %d | params = %d"),
                 nrow(mIg0), length(vtsc.lev), nD, 100 * mean(mIg0 == 0),
-                median(colSums(mIg0)), length(aLev), 6 + nVac))
+                median(colSums(mIg0)), length(aLev),
+                5L + nD * (nD - 1L) + nVac))
+

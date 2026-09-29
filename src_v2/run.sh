@@ -8,7 +8,7 @@
 # date: 20260824
 
 export NFDS_SRC=/src
-Rscript model.r ../data/input.csv $1
+Rscript model.r ../raw/input.csv $1
 
 exit
 

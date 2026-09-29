@@ -23,9 +23,6 @@ bcod = function(df = unique(d0[,-(1:2)])){
 }
 
 ##### VT*SC distribution vector (demographics aware) #####
-# vtsc = function(idx, dm, nLev = length(vtsc.lev)){ # v2
-#   tabulate((dm - 1) * nLev + vtsc.idx[idx], nbins = nLev * nD)
-# }
-vtsc = function(idx, cls = vtsc.idx, nLev = length(vtsc.lev)){ # v1
+vtsc = function(idx, cls = vtsc.idx, nLev = length(vtsc.lev)){
   return(tabulate(cls[idx], nbins = nLev))
 }

@@ -7,7 +7,8 @@
 # arg: 0
 # date: 20260909
 
-dAte = "20260919"
+argv = (commandArgs(T))
+dAte = argv[1]
 
 ##### env #####
 source("colour.r")
@@ -38,14 +39,14 @@ for(i in seq_len(length(f.in0))){
 
 ##### Check plateau #####
 d0 = reshape(d0.all[,c(1,4,ncol(d0.all))], direction = "wide", timevar = "f.in", idvar = "gen")
-pdf("../res/convergenceCheck--dropRatio.pdf")
+pdf(paste0("../res/convergenceCheck--dropRatio_",dAte,".pdf"))
 par(mar = c(4,4,0,0)+.1)
 matplot(x = d0[,1], y = d0[,-1], type = "l", lty = 1, xlab = "SMC generation", ylab = "Data-simulation discrepancy drop ratio")
 invisible(dev.off())
 
 ##### Posterior stability #####
 d1 = reshape(d1.allAgg, direction = "wide", timevar = "f.in", idvar = "gen")
-pdf("../res/convergenceCheck--params.pdf")
+pdf(paste0("../res/convergenceCheck--params_",dAte,".pdf"))
 par(mfrow = c(5,2), mar = c(4,4,1,0)+.1)
 for(i in seq_len(length(par.Nam)-1)){
   i0 = d1[,c(1,grep(par.Nam[i+1], colnames(d1)))]
@@ -55,7 +56,7 @@ invisible(dev.off())
 
 ##### Between-seed agreement #####
 d2 = do.call(rbind, lapply(seq_along(f.in2), function(i) transform(read.csv(f.in2[i], header = T), seed = sEed[i])))
-pdf("../res/convergenceCheck--paramsLastAccept.pdf")
+pdf(paste0("../res/convergenceCheck--paramsLastAccept_",dAte,".pdf"))
 par(mfrow = c(3,2), mar = c(4,4,1,0)+.1)
 for(i in seq_len(length(pArams))){
   boxplot(d2[,which(colnames(d2)==pArams[i])] ~ d2$seed, col = "#00000000", xlab = "Simulations", ylab = pArams[i], xaxt = "n")
@@ -74,7 +75,8 @@ sapply(pArams, function(p){
 sapply(pArams, function(p){
   c(p.025 = tapply(d2[[p]], d2$seed, quantile, probs = .025), p.500 = tapply(d2[[p]], d2$seed, quantile, probs = .5), p.975 = tapply(d2[[p]], d2$seed, quantile, probs = .975))
 })
-pdf("../res/convergenceCheck--paramsPairwiseLastAccept.pdf")
+pdf(paste0("../res/convergenceCheck--paramsPairwiseLastAccept_",dAte,".pdf"))
 # plot(d1.all, col = "#00000022") # file size = 187.9 MB
 plot(d2[,3:7], cex = .1)
 invisible(dev.off())
+

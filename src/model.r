@@ -50,6 +50,7 @@ res <- abcsmc(
   prior_dist             = prior_dist,
   ss_obs                 = mIg0,
   nb_threshold           = 1,
+  batch_size             = 100,
   nb_acc_prtcl_per_gen   = 500,
   max_number_of_gen      = 500,
   new_threshold_quantile = .9,

@@ -7,7 +7,8 @@
 # arg: 0
 # date: 20260903
 
-dAte = "20260919"
+args = (commandArgs(T))
+dAte = args[1]
 
 ##### env #####
 source("colour.r")
@@ -56,7 +57,7 @@ rEs0[,(-1:0)+ncol(rEs0)][is.na(rEs0[,(-1:0)+ncol(rEs0)])] = 0
 pLt = cbind(rEs0[,1:3],rep(c(36,72), each = nrow(rEs0)), c(rEs0$t36[,1], rEs0$t72[,1]), c(rEs0$t36[,2], rEs0$t72[,2]), c(rEs0$t36[,3], rEs0$t72[,3]), c(rEs0$d36, rEs0$d72))
 colnames(pLt)[-c(1:3)] = c("month", "p.05", "p.50", "p.95", "real")
 
-jpeg("../res/scMatchPlot--compare.jpeg", width = 6000, height = 2100, res = 300)
+jpeg(paste0("../res/scMatchPlot--compare_",dAte,".jpeg"), width = 6000, height = 2100, res = 300)
 par(mfrow = c(2,1), mar = c(5,4,3,0)+.1)
 i0 = unique(pLt$month); for(i in seq_len(length(i0))){
   pLt.0 = pLt[pLt$month==i0[i],]; pLt.0 = pLt.0[order(as.numeric(pLt.0$sc)),]
@@ -67,3 +68,4 @@ i0 = unique(pLt$month); for(i in seq_len(length(i0))){
   text(x = 10, y = max(unlist(pLt[,-c(1:4)]))*.9, labels = paste0("Month = ",i0[i]))
 };rm(i,i0, pLt.0)
 invisible(dev.off())
+

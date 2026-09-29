@@ -7,7 +7,8 @@
 # arg: 0
 # date: 20260901
 
-dAte = "20260919"
+argv = (commandArgs(T))
+dAte = argv[1]
 
 ##### env #####
 source("colour.r")
@@ -35,7 +36,7 @@ t2 = c(pf = 0.5448, sigma_f = 0.2113, sigma_w = 0.0514, sigma_v = 0.1254, m = 0.
 # t1[3] = log(t1[3])
 # t2[3] = log(t2[3])
 
-jpeg("../res/dyRecap--parHist.jpeg", height = 1200, width = 1600, res = 300)
+jpeg(paste0("../res/dyRecap--parHist_",dAte,".jpeg"), height = 1200, width = 1600, res = 300)
 par(mfrow = c(3,2), mar = c(5,4,1,0)+.1)
 for(i in seq_len(length(tRuth))){
   for(i0 in seq_len(length(sEed))){
