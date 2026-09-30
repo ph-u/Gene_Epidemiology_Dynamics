@@ -27,12 +27,12 @@ make_fixture <- function(seed = 42L) {
   meta <- data.frame(Time = rep(tPoint, vapply(mix, sum, 0)),
                      VT   = linVT[lin],
                      SC   = lin)                          # SC must be the last meta column
-  write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "raw", "data.tsv"),
+  write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "data", "data.tsv"),
               sep = "\t", row.names = FALSE, quote = FALSE)
 
   write.csv(data.frame(
     Type  = c("data", "population", "percentage initial infected", "vaccine start month"),
-    Value = c(file.path(dir, "raw", "data.tsv"), "1000", "100", "0")),
+    Value = c(file.path(dir, "data", "data.tsv"), "1000", "100", "0")),
     file.path(dir, "data", "input.csv"), row.names = FALSE, quote = FALSE)
 
   write.table(c(11, 22, 33), file.path(dir, "raw", "seed.csv"),

@@ -32,7 +32,7 @@ make_fixture <- function(seed = 42L) {
   ## column order: Time | Deme | Age | VT1 | VT2 | SC | genes   (SC LAST metadata)
   meta <- data.frame(Time = rows$Time, Deme = paste0("D", rows$Dm), Age = rows$Age,
                      VT1 = vt1[rows$lin], VT2 = vt2[rows$lin], SC = rows$lin)
-  write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "raw", "data.tsv"),
+  write.table(cbind(meta, as.data.frame(gene)), file.path(dir, "data", "data.tsv"),
               sep = "\t", row.names = FALSE, quote = FALSE)
 
   ## VT1 timing varies across demes with uptake held at 1, so D1-vs-D3 isolates
@@ -47,7 +47,7 @@ make_fixture <- function(seed = 42L) {
 
   write.csv(data.frame(
     Type  = c("data", "rollout", "population", "percentage initial infected"),
-    Value = c(file.path(dir, "raw", "data.tsv"), file.path(dir, "raw", "rollout.tsv"),
+    Value = c(file.path(dir, "data", "data.tsv"), file.path(dir, "raw", "rollout.tsv"),
               "1200", "100")),
     file.path(dir, "data", "input.csv"), row.names = FALSE, quote = FALSE)
 
