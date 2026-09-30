@@ -49,7 +49,7 @@ make_fixture <- function(seed = 42L) {
     Type  = c("data", "rollout", "population", "percentage initial infected"),
     Value = c(file.path(dir, "raw", "data.tsv"), file.path(dir, "raw", "rollout.tsv"),
               "1200", "100")),
-    file.path(dir, "raw", "input.csv"), row.names = FALSE, quote = FALSE)
+    file.path(dir, "data", "input.csv"), row.names = FALSE, quote = FALSE)
 
   write.table(c(11, 22, 33), file.path(dir, "raw", "seed.csv"),
               row.names = FALSE, col.names = FALSE, sep = ",")
