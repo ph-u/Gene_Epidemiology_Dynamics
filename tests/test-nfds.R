@@ -107,9 +107,9 @@ test_that("a later roll-out leaves more vaccine type behind", {
   isV <- startsWith(vtsc.lev, "1;")
   blk <- function(x, dd) x[((dd - 1) * length(vtsc.lev) + 1):(dd * length(vtsc.lev)), ncol(x)]
   f   <- vapply(1:8, function(s) {
-           set.seed(s); x <- mn(vSel = c(.5, 0), migration = 0, mWithin = 0)
-           c(sum(blk(x, 1)[isV]) / sum(blk(x, 1)), sum(blk(x, 3)[isV]) / sum(blk(x, 3)))
-         }, numeric(2))
+    set.seed(s); x <- mn(vSel = c(.5, 0), migration = 0, mWithin = 0)
+    c(sum(blk(x, 1)[isV]) / sum(blk(x, 1)), sum(blk(x, 3)[isV]) / sum(blk(x, 3)))
+  }, numeric(2))
   expect_lt(mean(f[1, ]), mean(f[2, ]))
 })
 
@@ -212,6 +212,13 @@ test_that("nfds_jsd returns the maximum distance rather than NA on a dead column
 test_that("nfds_jsd bootstraps itself in a worker with an empty globalenv", {
   load_full()
   scr <- file.path(FIXTURE_DIR, "src")
+  ## FIX B9: nfds_jsd assembles the mWithin matrix from named mWithin_d1_d2 entries.
+  ## Build the directed-pair string dynamically from nD (known after load_full()).
+  mW_str <- paste(
+    unlist(lapply(seq_len(nD), function(d1)
+      paste0("mWithin_", d1, "_",
+             seq_len(nD)[seq_len(nD) != d1], " = .05"))),
+    collapse = ", ")
   out <- system2("Rscript", c("-e", shQuote(sprintf(
     'setwd("%s")
      load(Sys.getenv("NFDS_STATE"), envir = globalenv())
@@ -219,9 +226,9 @@ test_that("nfds_jsd bootstraps itself in a worker with an empty globalenv", {
      rm(list = setdiff(ls(globalenv()), c("f", "obs")), envir = globalenv())
      environment(f) <- globalenv()
      cat(f(list(propStrong = .25, fSelected = .1, wSelected = .001, migration = .02,
-                coInf = 0, mWithin = .05, vSelected1 = .2, vSelected2 = .15), obs))', scr))),
+                coInf = 0, %s, vSelected1 = .2, vSelected2 = .15), obs))',
+    scr, mW_str))),
     stdout = TRUE, stderr = TRUE)
   expect_false(any(grepl("could not find function|object .* not found", out)))
   expect_true(is.finite(suppressWarnings(as.numeric(tail(out, 1)))))
 })
-

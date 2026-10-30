@@ -141,24 +141,34 @@ test_that("every sampling month falls inside the simulated generations", {
   expect_lt(min(eQm$Month), nGen)          # guards the descending (min+1):nGen trap
 })
 
-test_that("abcsmc receives the observed statistic and a 6 + nVac prior", {
+test_that("abcsmc receives the observed statistic and a 5 + nD*(nD-1) + nVac prior", {
   load_full()
   expect_identical(ABCSMC_CALL$ss_obs, mIg0)
-  expect_length(prior_dist$nfds, 6 + nVac)
-  expect_setequal(vapply(prior_dist$nfds, `[`, character(1), 1),
-                  c("propStrong", "fSelected", "wSelected", "migration",
-                    "coInf", "mWithin", "vSelected1", "vSelected2"))
-  ## vSelMod was removed when coverage became computable from age
-  expect_false("vSelMod" %in% vapply(prior_dist$nfds, `[`, character(1), 1))
+  ## FIX B6: prior now has 5 base + nD*(nD-1) directed mWithin pairs + nVac vaccines
+  expect_length(prior_dist$nfds, 5 + nD * (nD - 1) + nVac)
+  ## FIX B7: check all expected parameter names, including each directed pair
+  pNms <- vapply(prior_dist$nfds, `[`, character(1), 1)
+  expect_setequal(pNms,
+                  c("propStrong", "fSelected", "wSelected", "migration", "coInf",
+                    unlist(lapply(seq_len(nD), function(d1)
+                      paste0("mWithin_", d1, "_", seq_len(nD)[seq_len(nD) != d1]))),
+                    paste0("vSelected", seq_len(nVac))))
+  ## vSelMod was removed when coverage became computable from age;
+  ## scalar mWithin was replaced by directed-pair parameters
+  expect_false("vSelMod" %in% pNms)
+  expect_false("mWithin"  %in% pNms)
   expect_lte(ABCSMC_CALL$distance_threshold_min, ncol(mIg0) * log(2))
 })
 
 test_that("the export passes exactly the fitted parameters, in order", {
-  # regression: an extra positional argument once shifted mWithin into meanStandardize
+  ## FIX B8: model.r assembles mWithin via a loop over directed pairs, so we
+  ## check for the loop pattern rather than a literal pOst[["mWithin"]] reference.
   txt <- paste(readLines(file.path(SRC_DIR, "model.r")), collapse = " ")
   expect_false(grepl("vSelMod", txt))
-  for (nm in c("coInf", "mWithin", "vSelected"))
+  for (nm in c("coInf", "vSelected"))
     expect_true(grepl(paste0("pOst\\[\\[.*", nm, "|pOst\\$", nm), txt), info = nm)
+  ## mWithin is assembled as a matrix from named mWithin_d1_d2 posterior columns
+  expect_true(grepl("mWithin_.*d1.*d2|paste0.*mWithin_", txt), info = "mWithin matrix")
 })
 
 test_that("setup.r defines no side effects that belong in model.r", {
@@ -192,4 +202,3 @@ test_that("the export writes genotype rows and per-deme counts", {
   expect_equal(rowSums(x[, paste0("n_", dLev)]), x$finalCount)
   expect_length(list.files(dOut, pattern = "\\.rds$"), 2)
 })
-

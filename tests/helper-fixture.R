@@ -67,28 +67,46 @@ make_fixture <- function(seed = 42L) {
   dir
 }
 
-##### stub standing in for BRREWABC::abcsmc (columns must match the fixture's nVac = 2) #####
+##### stub standing in for BRREWABC::abcsmc #####
+## FIX B1: mWithin is now a heterogeneous nD x nD matrix; the prior has one
+## named parameter mWithin_d1_d2 per directed deme pair (nD*(nD-1) of them).
+## nD is available in globalenv by the time abcsmc() is called (model.r sources
+## setup.r first), so we generate the column names dynamically.
 stub_abcsmc <- function(model_list, prior_dist, ss_obs, ...) {
   assign("ABCSMC_CALL",
          c(list(model_list = model_list, prior_dist = prior_dist, ss_obs = ss_obs),
            list(...)), envir = globalenv())
-  list(particles = data.frame(
-         gen        = c(1, 1),
-         propStrong = c(.20, .30),  fSelected = c(.10, .12),
-         wSelected  = c(.001, .002), migration = c(.02, .03),
-         coInf      = c(0, .05),    mWithin   = c(.05, .10),
-         vSelected1 = c(.10, .15),  vSelected2 = c(.08, .12)),
+  mW_nms  <- unlist(lapply(seq_len(nD), function(d1)
+    paste0("mWithin_", d1, "_", seq_len(nD)[seq_len(nD) != d1])))
+  mW_vals <- setNames(lapply(mW_nms, function(.) c(.05, .08)), mW_nms)
+  list(particles = do.call(data.frame, c(
+         list(gen        = c(1, 1),
+              propStrong = c(.20, .30),  fSelected  = c(.10, .12),
+              wSelected  = c(.001,.002), migration  = c(.02, .03),
+              coInf      = c(0,   .05)),
+         mW_vals,
+         list(vSelected1 = c(.10, .15),  vSelected2 = c(.08, .12)))),
        thresholds = c(1, .5))
 }
 
 ##### keeps tests readable and immune to argument-order changes #####
+## FIX B2: m.nfds() expects mWithin as an nD x nD matrix. mn() accepts a scalar
+## for convenience and converts it: scalar s -> s * off-diagonal matrix. An actual
+## matrix passes through unchanged, so mn(mWithin = matrix(...)) also works.
 mn <- function(propStrong = .25, fSelected = .1, wSelected = .001, vSel = c(.2, .15),
                migration = .02, coInf = 0, mWithin = .05, ...)
-  m.nfds(propStrong, fSelected, wSelected, vSel, migration, coInf, mWithin, ...)
+  m.nfds(propStrong, fSelected, wSelected, vSel, migration, coInf,
+         if (is.matrix(mWithin)) mWithin
+         else matrix(mWithin, nD, nD) * (1L - diag(nD)), ...)
 
+## FIX B3: nfds_jsd() assembles the mWithin matrix from named parameters
+## mWithin_d1_d2. p0() now emits one entry per directed deme pair.
 p0 <- function(...) modifyList(
-  list(propStrong = .25, fSelected = .1, wSelected = .001, migration = .02,
-       coInf = 0, mWithin = .05, vSelected1 = .2, vSelected2 = .15),
+  c(list(propStrong = .25, fSelected = .1, wSelected = .001, migration = .02, coInf = 0),
+    setNames(as.list(rep(.05, nD * (nD - 1))),
+             unlist(lapply(seq_len(nD), function(d1)
+               paste0("mWithin_", d1, "_", seq_len(nD)[seq_len(nD) != d1])))),
+    list(vSelected1 = .2, vSelected2 = .15)),
   list(...))
 
 ##### temporarily override a global, restoring it when the test block exits #####
@@ -108,6 +126,9 @@ load_model <- function(force = FALSE) {
   old <- setwd(file.path(dir, "src")); on.exit(setwd(old))
   stopifnot(identical(normalizePath(".."), normalizePath(dir)))
   Sys.setenv(NFDS_SRC = getwd())
+  ## FIX B4: setup.r defaults to ../raw/input.csv but the fixture writes input.csv
+  ## to ../data/input.csv. Assign argv before sourcing so the guard is satisfied.
+  assign("argv", c("../data/input.csv", "1"), envir = globalenv())
   suppressMessages(source("setup.r"))
   options(nfds.loaded = TRUE)
   invisible(TRUE)
@@ -119,9 +140,11 @@ load_full <- function() {
   assign("abcsmc", stub_abcsmc, envir = globalenv())
   assign("FIXTURE_DIR", dir, envir = globalenv())
   old <- setwd(file.path(dir, "src")); on.exit(setwd(old))
+  stopifnot(identical(normalizePath(".."), normalizePath(dir)))
   Sys.setenv(NFDS_SRC = getwd())
+  ## model.r sets argv itself from commandArgs(); its default is ../data/input.csv
+  ## (fixed in src/model.r B5). No argv assignment needed here.
   suppressMessages(source("model.r"))
   options(nfds.full = TRUE, nfds.loaded = TRUE)
   invisible(TRUE)
 }
-

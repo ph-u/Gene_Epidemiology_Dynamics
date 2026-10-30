@@ -12,7 +12,7 @@
 # date: 20260919
 
 argv = (commandArgs(TRUE))
-if(length(argv) != 2){ argv = c("../raw/input.csv", 1) }
+if(length(argv) != 2){ argv = c("../data/input.csv", 1) }
 
 ##### Environment #####
 library(BRREWABC)

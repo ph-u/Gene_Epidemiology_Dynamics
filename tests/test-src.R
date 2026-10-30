@@ -44,4 +44,3 @@ test_that("each seed gets its own output directory", {
   expect_identical(normalizePath(Sys.getenv("NFDS_STATE")),
                    normalizePath(file.path(dOut, "setupState.RData")))
 })
-
