@@ -83,14 +83,19 @@ test_that("a vaccine that never rolls out is identical to zero efficacy", {
 })
 
 test_that("hosts older than every age window are never covered", {
+  ## L3 fix: the original test passed the already-swapped value to the second swap(),
+  ## making both a and b run with huge ages (identical).  Fix: run b with original
+  ## ages BEFORE swapping, then run a with huge ages AFTER.
+  ## L4 fix: migration=0 and mWithin=0 eliminate mixing noise so only age-driven
+  ## coverage (not stochastic migration) determines whether the two runs differ.
   load_model()
-  swap("aLev",  c(1e5, 2e5))                       # two levels: avoids sample()'s 1:n trap
+  set.seed(1); b <- mn(vSel = c(.5, .5), migration = 0, mWithin = 0)  # original ages
+  swap("aLev",  c(1e5, 2e5))   # two levels: avoids sample()'s 1:n trap
   swap("aProb", matrix(.5, 2, nD))
-  set.seed(1); a <- mn(vSel = c(.5, .5))
-  swap("aLev",  aLev); swap("aProb", aProb)        # no-ops; restored by the first swap
-  set.seed(1); b <- mn(vSel = c(.5, .5))
+  set.seed(1); a <- mn(vSel = c(.5, .5), migration = 0, mWithin = 0)  # huge ages
+  ## a has zero coverage (100 000 months >> AgeWindow=24); b has coverage for young hosts
   expect_true(is.matrix(a))
-  expect_false(identical(a, b))                    # age genuinely drives coverage
+  expect_false(identical(a, b))
 })
 
 test_that("a single age level does not trip sample()'s 1:n reinterpretation", {
@@ -114,11 +119,13 @@ test_that("a later roll-out leaves more vaccine type behind", {
 })
 
 test_that("stronger vaccine selection lowers the final vaccine-type fraction", {
+  ## L4 fix: without migration=0, mWithin=0 the host mixing in the small fixture
+  ## swamps the vaccine signal; isolate demes so only selection drives the VT fraction.
   load_model()
   isVT <- rep(startsWith(vtsc.lev, "1;"), nD)
   vtFrac <- function(v, seeds = 1:6)
     mean(vapply(seeds, function(s) {
-      set.seed(s); x <- mn(vSel = c(v, v))
+      set.seed(s); x <- mn(vSel = c(v, v), migration = 0, mWithin = 0)
       sum(x[isVT, ncol(x)]) / sum(x[, ncol(x)])
     }, numeric(1)))
   expect_lt(vtFrac(0.4), vtFrac(0))
@@ -157,9 +164,12 @@ test_that("popRunaway rejects a run before allocating the generation", {
 })
 
 test_that("keepGenotypes returns the summary, a genotype table and deme counts", {
+  ## L5 fix: v2 keepGenotypes also returns hostState, hHist, hHistStats from the
+  ## infection/colonisation history feature.
   load_model(); set.seed(6)
   r <- mn(keepGenotypes = TRUE)
-  expect_setequal(names(r), c("ss", "genotypes", "demeCount", "G"))
+  expect_setequal(names(r),
+                  c("ss", "genotypes", "demeCount", "hostState", "hHist", "hHistStats", "G"))
   expect_equal(dim(r$ss), c(length(vtsc.lev) * nD, length(eQm.date)))
   expect_equal(nrow(r$genotypes), nrow(G0))
   expect_equal(dim(r$demeCount), c(nrow(G0), nD))

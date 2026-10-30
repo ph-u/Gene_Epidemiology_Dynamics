@@ -200,5 +200,7 @@ test_that("the export writes genotype rows and per-deme counts", {
   expect_setequal(unique(x$particle), 1:2)
   expect_true(all(paste0("n_", dLev) %in% names(x)))
   expect_equal(rowSums(x[, paste0("n_", dLev)]), x$finalCount)
-  expect_length(list.files(dOut, pattern = "\\.rds$"), 2)
+  ## v2 writes 3 RDS files per particle: nfdsG_, nfdsHostState_, nfdsHHist_ (L2 fix)
+  expect_length(list.files(dOut, pattern = "\\.rds$"),
+                length(unique(x$particle)) * 3L)
 })

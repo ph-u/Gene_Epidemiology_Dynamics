@@ -101,9 +101,11 @@ mn <- function(propStrong = .25, fSelected = .1, wSelected = .001, vSel = c(.2, 
 
 ## FIX B3: nfds_jsd() assembles the mWithin matrix from named parameters
 ## mWithin_d1_d2. p0() now emits one entry per directed deme pair.
+## migration and all mWithin pairs default to 0: mixing noise would swamp
+## the weak vaccine signals tested by nfds-suite tests (L6 fix).
 p0 <- function(...) modifyList(
-  c(list(propStrong = .25, fSelected = .1, wSelected = .001, migration = .02, coInf = 0),
-    setNames(as.list(rep(.05, nD * (nD - 1))),
+  c(list(propStrong = .25, fSelected = .1, wSelected = .001, migration = 0, coInf = 0),
+    setNames(as.list(rep(0, nD * (nD - 1))),
              unlist(lapply(seq_len(nD), function(d1)
                paste0("mWithin_", d1, "_", seq_len(nD)[seq_len(nD) != d1])))),
     list(vSelected1 = .2, vSelected2 = .15)),

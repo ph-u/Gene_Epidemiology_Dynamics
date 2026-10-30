@@ -53,7 +53,7 @@ prior_dist <- list(nfds = c(
   ## Heterogeneous migration: one parameter per DIRECTED deme pair
   do.call(c, lapply(seq_len(nD), function(d1)
     lapply(seq_len(nD)[seq_len(nD) != d1], function(d2)
-      list(c(paste0("mWithin_", d1, "_", d2), "unif", 0, 1))))),
+      c(paste0("mWithin_", d1, "_", d2), "unif", 0, 1)))),
   ## Per-vaccine efficacy
   lapply(seq_len(nVac), function(v) c(paste0("vSelected", v), "unif", 0, 1))))
 
