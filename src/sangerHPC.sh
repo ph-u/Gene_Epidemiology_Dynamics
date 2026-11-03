@@ -19,8 +19,8 @@ if [[ $USER!="ubuntu" ]];then
   sed -e "s/mAx/$(( `wc -l < ../upload/seed.csv` ))/" sangerHPC_child.sh > sC.sh
   bsub < sC.sh
 else
-  lIm=3
-  sed -e "s/LSB_JOBINDEX/1/" -e "s/ --rm//" sangerHPC_child.sh > sC.sh
+  lIm=2
+  sed -e "s/LSB_JOBINDEX/1/" sangerHPC_child.sh > sC.sh
   i0=`wc -l < ../data/seed.csv`
   for i in `seq 1 ${i0}`;do
     while (( $(jobs -rp | wc -l) >= lIm ));do

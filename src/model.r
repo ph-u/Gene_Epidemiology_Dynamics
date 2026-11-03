@@ -77,7 +77,7 @@ res <- abcsmc(
   ss_obs                 = mIg0,
   nb_threshold           = 1,
   nb_acc_prtcl_per_gen   = 500,
-  max_number_of_gen      = 30,
+  max_number_of_gen      = 1000,
   new_threshold_quantile = .9,
   distance_threshold_min = .05,       # set from PILOT quantiles above
   acceptance_rate_min    = .001,
