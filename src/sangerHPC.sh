@@ -15,7 +15,7 @@ mkdir -p ../data
 apptainer pull docker://ghcr.io/ph-u/gene_epidemiology_dynamics:latest
 
 
-if [[ $USER!="ubuntu" ]];then
+if [[ $USER != "ubuntu" ]];then
   sed -e "s/mAx/$(( `wc -l < ../upload/seed.csv` ))/" sangerHPC_child.sh > sC.sh
   bsub < sC.sh
 else
