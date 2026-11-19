@@ -196,22 +196,26 @@ end   # @testset "func"
     end
 
     @testset "simulate — vaccine selection reduces VT frequency" begin
-        # θ with high vaccine efficacy (vSel ≈ 0.9) vs zero efficacy (vSel = 0)
-        θ_hi  = copy(θ_def);  θ_hi[end-nV+1:end]  .= 0.9   # high efficacy
+        θ_hi  = copy(θ_def);  θ_hi[end-nV+1:end]  .= 0.9   # high vaccine efficacy
         θ_lo  = copy(θ_def);  θ_lo[end-nV+1:end]  .= 0.0   # no vaccine effect
-        # Disable migration to isolate the vaccine signal
+        # Disable migration so the vaccine signal is not confounded by cross-deme flow
         θ_hi[5 .+ (1:nD*(nD-1))] .= 0.0;  θ_hi[4] = 0.0
         θ_lo[5 .+ (1:nD*(nD-1))] .= 0.0;  θ_lo[4] = 0.0
 
-        vt_rows = [any(state.VTmat[g, :] .> 0) for g in 1:nG]   # genotypes targeted by any vaccine
+        vt_rows = [any(state.VTmat[g, :] .> 0) for g in 1:nG]
         vt_frac(r) = sum(r[vcat([((d-1)*nG+1):d*nG for d in 1:nD]...)[repeat(vt_rows, nD)], end]) /
                      max(1, sum(r[:, end]))
 
-        f_hi = mean(let Random.seed!(s);  r = simulate(θ_hi, state);  isnothing(r) ? NaN : vt_frac(r)  end
-                    for s in 1:6)
-        f_lo = mean(let Random.seed!(s);  r = simulate(θ_lo, state);  isnothing(r) ? NaN : vt_frac(r)  end
-                    for s in 1:6)
-        @test f_hi < f_lo    # strong vaccine → lower VT fraction at end
+        # `let x = expr` IS valid Julia; `let fn_call` (no binding) is NOT.
+        # Use an explicit loop so each seed is evaluated with a proper statement sequence,
+        # and filter out failed simulations (nothing) rather than averaging over NaN.
+        vals_hi = Float64[];  vals_lo = Float64[]
+        for s in 1:10
+            Random.seed!(s);  r = simulate(θ_hi, state);  isnothing(r) || push!(vals_hi, vt_frac(r))
+            Random.seed!(s);  r = simulate(θ_lo, state);  isnothing(r) || push!(vals_lo, vt_frac(r))
+        end
+        @test !isempty(vals_hi) && !isempty(vals_lo)   # at least one run succeeded per arm
+        @test mean(vals_hi) < mean(vals_lo)             # strong vaccine → lower VT fraction at end
     end
 
     @testset "simulate — mWithin moves bacteria between demes" begin
