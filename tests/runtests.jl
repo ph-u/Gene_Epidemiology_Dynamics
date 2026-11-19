@@ -183,9 +183,13 @@ end   # @testset "func"
         @test !isnothing(result)
         @test size(result) == (nG * nD, nT)
         @test all(result .>= 0)             # counts must be non-negative
-        # Total simulated isolates at each timepoint should match nObs
+        # simulate() records the FULL bacterial population (~kD bacteria), not a
+        # survey of size nObs.  JSD normalises both to proportions, so absolute
+        # sizes never need to match.  Verify the population is alive and reasonable.
         for t in 1:nT
-            @test sum(result[:, t]) == sum(state.nObs[t, :])
+            n_t = sum(result[:, t])
+            @test n_t > 0                      # not extinct by sampling timepoint t
+            @test n_t < 20 * sum(state.kD)     # not exploded (mirrors simulate's guard)
         end
     end
 
