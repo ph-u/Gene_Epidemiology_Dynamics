@@ -9,12 +9,9 @@ on:
 permissions:
   contents: read
 
-env:
-  BRREWABC_REF: 2dd5077          # replace with a commit SHA once it works
-
 jobs:
   unit-tests:
-    name: R ${{ matrix.r-version }}
+    name: Julia ${{ matrix.julia-version }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -22,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r-version: ['4.5']
+        julia-version: ['1.11']   # pinned: last version with verified package compat
 
     steps:
       - name: Checkout
@@ -31,51 +28,40 @@ jobs:
       - name: Check repository layout
         run: |
           set -euo pipefail
-          for f in src.r nfds.r model.r; do
+          for f in func.jl nfds.jl model.jl preprocess--mass.jl; do
             test -f "src/$f" || { echo "::error::src/$f is missing"; exit 1; }
             n=$(find . -name "$f" -not -path './.git/*' | wc -l)
             test "$n" -eq 1 || { echo "::error::$f must exist only in src/ (found $n copies)"; exit 1; }
           done
-          for d in tests raw; do
+          for d in tests raw data; do
             test -d "$d" || { echo "::error::$d/ is missing"; exit 1; }
           done
-          for t in helper-fixture.R test-src.R test-nfds.R test-model.R; do
-            test -f "tests/$t" || { echo "::error::tests/$t is missing"; exit 1; }
-          done
-          ln -s src/model.r /tmp/_symtest && rm /tmp/_symtest
+          test -f "src/Project.toml"      || { echo "::error::src/Project.toml missing"; exit 1; }
+          test -f "tests/runtests.jl"     || { echo "::error::tests/runtests.jl missing"; exit 1; }
           echo "layout OK"
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v2
         with:
-          r-version: ${{ matrix.r-version }}
-          use-public-rspm: true
+          version: ${{ matrix.julia-version }}
 
-      - name: Cache R library
-        uses: actions/cache@v4
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v2
         with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ matrix.r-version }}-brrewabc-v1
-          restore-keys: ${{ runner.os }}-r-${{ matrix.r-version }}-
+          cache-name: ${{ runner.os }}-julia-${{ matrix.julia-version }}-nfds-v2
 
-      - name: Install R packages
-        shell: Rscript {0}
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if (!requireNamespace("testthat", quietly = TRUE)) install.packages("testthat")
-          if (!requireNamespace("remotes",  quietly = TRUE)) install.packages("remotes")
-          if (!requireNamespace("BRREWABC", quietly = TRUE))
-            remotes::install_github("GaelBn/BRREWABC",
-                                    ref     = Sys.getenv("BRREWABC_REF", "HEAD"),
-                                    upgrade = "never")
-          cat("BRREWABC ", as.character(packageVersion("BRREWABC")), "\n")
+      - name: Install Julia packages
+        run: julia --project=src -e 'using Pkg; Pkg.instantiate()'
 
-      - name: Parse check
+      - name: Syntax check
         run: |
           set -euo pipefail
-          for f in src/src.r src/nfds.r src/model.r; do
-            Rscript -e "invisible(parse('$f')); cat('parse OK  $f\n')"
+          for f in src/func.jl src/nfds.jl src/model.jl src/preprocess--mass.jl; do
+            julia --project=src -e "
+              src = read(\"$f\", String)
+              Meta.parse(\"begin\n\$src\nend\")
+              println(\"parse OK  $f\")
+            "
           done
 
       - name: Snapshot working tree
@@ -85,8 +71,8 @@ jobs:
 
       - name: Run unit tests
         env:
-          NFDS_SRC: ${{ github.workspace }}/src
-        run: Rscript -e 'testthat::test_dir("tests", stop_on_failure = TRUE)'
+          JULIA_NUM_THREADS: auto
+        run: julia --project=src --threads auto tests/runtests.jl
 
       - name: Working tree must be untouched
         run: |
@@ -94,7 +80,7 @@ jobs:
           find . -path ./.git -prune -o -type f -print0 \
             | sort -z | xargs -0 -r md5sum > /tmp/tree-after.md5
           if ! diff -u /tmp/tree-before.md5 /tmp/tree-after.md5; then
-            echo "::error::the test run read or wrote real repository files"
+            echo "::error::the test run wrote real repository files"
             exit 1
           fi
           echo "working tree untouched"

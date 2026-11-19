@@ -1,0 +1,27 @@
+name = "NFDSModel"
+version = "2.0.0"
+authors = ["ph-u"]
+
+[deps]
+CSV          = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames   = "a93c6f00-e57d-5684-b466-afe8fa294f15"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JLD2         = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+StatsBase    = "2913bbd2-ae8a-5f71-8cce-781bc897a5f3"
+
+# Standard library packages (always available, no UUID needed in [deps]):
+#   CSV, DataFrames — data loading and manipulation
+#   Distributions  — Poisson, NegativeBinomial offspring distributions
+#   JLD2           — HDF5-based model state persistence (equiv. R's save/load)
+#   StatsBase      — weighted sampling (sample/wt_sample)
+#   Random         — thread-safe per-thread RNGs (stdlib)
+#   Statistics     — mean, quantile (stdlib)
+#   Printf         — @printf formatting (stdlib)
+
+[compat]
+CSV           = "0.10"
+DataFrames    = "1.6"
+Distributions = "0.25"
+JLD2          = "0.4"
+StatsBase     = "0.34"
+julia         = "1.11"
