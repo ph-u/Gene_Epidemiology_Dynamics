@@ -31,8 +31,9 @@ RUN julia --project=/src -e ' \
 # ── Repository contents ───────────────────────────────────────────────────────
 COPY raw /raw
 COPY src /src
-#RUN mkdir -p /data
-#COPY data /data
+# /data is created empty; mount real data at run time:
+#   docker run -v /host/data:/data gdyn julia --project=/src --threads N /src/model.jl /data/input.csv 1
+RUN mkdir -p /data
 
 # Thread control: let the caller set JULIA_NUM_THREADS at runtime.
 # OMP/BLAS flags prevent accidental over-subscription with BLAS threads.

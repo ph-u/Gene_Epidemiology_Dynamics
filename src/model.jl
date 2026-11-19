@@ -15,9 +15,13 @@
 #   --threads auto    = use all available physical CPU cores
 #   second argument   = integer seed (matches the R seed convention)
 
-include("nfds.jl")
+# Same pattern as nfds.jl: guard against double-include and use @__DIR__ for
+# an absolute path that works from any working directory.
+@isdefined(abc_distance) || include(joinpath(@__DIR__, "nfds.jl"))
 
-using Random, Statistics
+# CSV and DataFrames are already loaded by nfds.jl, but listing them here
+# makes the dependency explicit and avoids confusion for readers of model.jl.
+using CSV, DataFrames, Random, Statistics
 using Printf: @printf
 
 # ─── Parameter layout (matches R model.r prior) ───────────────────────────────

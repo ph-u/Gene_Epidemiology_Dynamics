@@ -9,11 +9,10 @@
 
 using Test, Random, Statistics, Distributions, DataFrames, CSV
 
-# Load the model source from src/
-src = joinpath(@__DIR__, "..", "src")
-include(joinpath(src, "func.jl"))
-include(joinpath(src, "nfds.jl"))
-include(joinpath(src, "model.jl"))
+# Single include: model.jl chains model → nfds → func via @isdefined guards.
+# Including all three separately would redefine the ModelState struct,
+# which is a hard error in Julia ("cannot redefine constant ModelState").
+include(joinpath(@__DIR__, "..", "src", "model.jl"))
 
 # ─── Fixture builder ───────────────────────────────────────────────────────────
 # Small synthetic dataset: 3 demes, 2 vaccines, 4 genotypes, 6 gene loci.

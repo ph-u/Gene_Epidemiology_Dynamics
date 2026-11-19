@@ -19,7 +19,11 @@
 # using Jensen-Shannon Divergence (JSD).  The ABC algorithm searches for the
 # parameter values that minimise this distance.
 
-include("func.jl")
+# @isdefined guard: if func.jl was already included (e.g. from runtests.jl),
+# skip re-loading it — redefining structs is a hard error in Julia.
+# joinpath(@__DIR__, ...) resolves relative to this file's directory (src/),
+# not the working directory, so the path is correct from any call site.
+@isdefined(jsd) || include(joinpath(@__DIR__, "func.jl"))
 
 using CSV, DataFrames, Distributions, StatsBase, JLD2
 using Statistics: mean

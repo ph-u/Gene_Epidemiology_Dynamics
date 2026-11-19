@@ -46,9 +46,8 @@ jobs:
           version: ${{ matrix.julia-version }}
 
       - name: Cache Julia packages
-        uses: julia-actions/cache@v2
-        with:
-          cache-name: ${{ runner.os }}-julia-${{ matrix.julia-version }}-nfds-v2
+        uses: julia-actions/cache@v1
+        # v1 auto-generates the cache key from Project.toml; no inputs needed.
 
       - name: Install Julia packages
         env:
@@ -56,14 +55,19 @@ jobs:
         run: julia --project=src -e 'using Pkg; Pkg.instantiate()'
 
       - name: Syntax check
+        # Parses each file's AST without executing it.
+        # Key fix: earlier version used `$src` in a bash double-quoted string,
+        # which bash expanded as an empty variable before Julia ever ran.
+        # Now: bash only expands $f (the loop variable); Julia sees no $ at all.
+        # Meta.parseall throws ParseError on any syntax mistake.
         run: |
           set -euo pipefail
           for f in src/func.jl src/nfds.jl src/model.jl src/preprocess--mass.jl; do
-            julia --project=src -e "
-              src = read(\"$f\", String)
-              Meta.parse(\"begin\n\$src\nend\")
+            julia --startup-file=no -e "
+              code = read(\"$f\", String)
+              Meta.parseall(code)
               println(\"parse OK  $f\")
-            "
+            " || { echo "::error::Syntax error in $f"; exit 1; }
           done
 
       - name: Snapshot working tree
