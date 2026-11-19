@@ -31,8 +31,8 @@ RUN julia --project=/src -e ' \
 # ── Repository contents ───────────────────────────────────────────────────────
 COPY raw /raw
 COPY src /src
-RUN mkdir -p /data
-COPY data /data
+#RUN mkdir -p /data
+#COPY data /data
 
 # Thread control: let the caller set JULIA_NUM_THREADS at runtime.
 # OMP/BLAS flags prevent accidental over-subscription with BLAS threads.

@@ -33,7 +33,7 @@ jobs:
             n=$(find . -name "$f" -not -path './.git/*' | wc -l)
             test "$n" -eq 1 || { echo "::error::$f must exist only in src/ (found $n copies)"; exit 1; }
           done
-          for d in tests raw data; do
+          for d in tests raw; do
             test -d "$d" || { echo "::error::$d/ is missing"; exit 1; }
           done
           test -f "src/Project.toml"      || { echo "::error::src/Project.toml missing"; exit 1; }
@@ -51,6 +51,8 @@ jobs:
           cache-name: ${{ runner.os }}-julia-${{ matrix.julia-version }}-nfds-v2
 
       - name: Install Julia packages
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: julia --project=src -e 'using Pkg; Pkg.instantiate()'
 
       - name: Syntax check
