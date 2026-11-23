@@ -11,9 +11,9 @@
 #BSUB -o ../work/pj01-%J-%I.o
 #BSUB -e ../work/pj01-%J-%I.e
 #BSUB -q week
-#BSUB -n 20
-#BSUB -M 12000
-#BSUB -R "select[mem>12000] rusage[mem=12000] span[hosts=1]"
+#BSUB -n 10
+#BSUB -M 4000
+#BSUB -R "select[mem>4000] rusage[mem=4000] span[hosts=1]"
 #BSUB -J "gdy[1-mAx]"
 
 PATH="/software/isg/private/wrappers/apptainer/1.4.0:$PATH"
