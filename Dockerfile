@@ -17,15 +17,28 @@ RUN curl -fsSL \
     && ln -s /opt/julia-${JULIA_VERSION}/bin/julia /usr/local/bin/julia \
     && julia --version
 
+# ── Julia depot in a fixed, user-independent path ─────────────────────────────
+# ROOT CAUSE OF THE SINGULARITY BUG:
+# Docker builds run as root, so Pkg.instantiate() writes packages to /root/.julia/.
+# Singularity runs containers as the HOST USER (e.g. ph17), so inside the container
+# ~ resolves to that user's NFS home (/nfs/users/nfs_p/ph17) — not /root/.
+# The host home has no Julia packages, so every `using` statement fails immediately.
+#
+# Fix: redirect the entire Julia depot to a fixed path that any user can read.
+# JULIA_DEPOT_PATH is inherited by Singularity from the Docker ENV, so the same
+# path is used at build time and at runtime regardless of who runs the container.
+ENV JULIA_DEPOT_PATH=/opt/julia-depot
+
 # ── Julia packages ────────────────────────────────────────────────────────────
 # Instantiate from Project.toml so the exact versions from [compat] are locked.
 # Precompiling here means zero compilation time at first run on the cluster.
 COPY src/Project.toml /src/Project.toml
-RUN julia --project=/src -e ' \
+RUN mkdir -p /opt/julia-depot && \
+    julia --project=/src -e ' \
     using Pkg; \
     Pkg.instantiate(); \
     Pkg.precompile(); \
-    println("Julia packages installed OK") \
+    println("Julia packages installed OK — depot: " * ENV["JULIA_DEPOT_PATH"]) \
     '
 
 # ── Repository contents ───────────────────────────────────────────────────────

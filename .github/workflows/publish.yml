@@ -74,3 +74,29 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      # Pull the image we just built by its immutable digest and verify that
+      # Julia starts correctly and every required package loads from the
+      # /src project environment (which exercises JULIA_DEPOT_PATH=/opt/julia-depot).
+      # If any `using` statement fails the step exits non-zero and the workflow fails.
+      - name: Verify Julia and packages are callable from container
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}"
+          docker pull "${IMAGE}"
+
+          echo "=== Julia version ==="
+          docker run --rm "${IMAGE}" julia --version
+
+          echo "=== Package load check ==="
+          docker run --rm "${IMAGE}" \
+            julia --project=/src -e '
+              using CSV, DataFrames, Distributions, JLD2, StatsBase
+              println("All packages loaded OK")
+              println("  CSV           v", pkgversion(CSV))
+              println("  DataFrames    v", pkgversion(DataFrames))
+              println("  Distributions v", pkgversion(Distributions))
+              println("  JLD2          v", pkgversion(JLD2))
+              println("  StatsBase     v", pkgversion(StatsBase))
+            '
+

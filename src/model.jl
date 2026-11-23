@@ -60,7 +60,7 @@ perturb(θ::AbstractVector, σ::Float64 = 0.1) =
 Run ABC-SMC.  Parameters match the R+BRREWABC implementation:
   pilot_n     = 200   — pilot simulations to establish the initial threshold
   n_particles = 500   — accepted particles per SMC generation
-  n_smc_gen   = 20    — number of successive tightening rounds
+  n_smc_gen   = 1000    — number of successive tightening rounds
 
 Checkpoints are written to `../data/run_<seed>/smc_gen***.csv` after each
 generation.  The final posterior is also saved as `posterior.csv`.

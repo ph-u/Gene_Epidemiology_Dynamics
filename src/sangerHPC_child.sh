@@ -10,7 +10,7 @@
 #BSUB -G ph17g
 #BSUB -o ../work/pj01-%J-%I.o
 #BSUB -e ../work/pj01-%J-%I.e
-#BSUB -q basement
+#BSUB -q week
 #BSUB -n 20
 #BSUB -M 12000
 #BSUB -R "select[mem>12000] rusage[mem=12000] span[hosts=1]"
