@@ -81,8 +81,16 @@ jobs:
       - name: Verify Julia and packages are callable from container
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
+          # steps.meta.outputs.tags is always lowercase (e.g. ghcr.io/ph-u/gene_epidemiology_dynamics:latest).
+          # env.IMAGE_NAME = github.repository, which preserves original casing
+          # (ph-u/Gene_Epidemiology_Dynamics); Docker rejects mixed-case refs, so we
+          # must NOT use env.REGISTRY/env.IMAGE_NAME to build the pull target.
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}"
+          # Strip the ":latest" tag suffix from the first tag to get the bare repo path,
+          # then pin to the immutable digest instead.  This is always lowercase.
+          REPO=$(echo "${TAGS}" | head -1 | sed 's/:.*//')
+          IMAGE="${REPO}@${DIGEST}"
           docker pull "${IMAGE}"
 
           echo "=== Julia version ==="
