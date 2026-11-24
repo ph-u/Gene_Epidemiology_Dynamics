@@ -33,6 +33,7 @@ ENV JULIA_DEPOT_PATH=/opt/julia-depot
 # Instantiate from Project.toml so the exact versions from [compat] are locked.
 # Precompiling here means zero compilation time at first run on the cluster.
 COPY src/Project.toml /src/Project.toml
+ENV JULIA_CPU_TARGET="generic"
 RUN mkdir -p /opt/julia-depot && \
     julia --project=/src -e ' \
     using Pkg; \
