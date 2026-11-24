@@ -9,6 +9,6 @@
 
 export NFDS_SRC=/src
 #Rscript model.r ../data/input.csv $1
-julia --project=$NFDS_SRC --threads auto $NFDS_SRC/model.jl ../data/input.csv `head -n $1 ../raw/seed.csv | tail -n 1`
+julia --project=$NFDS_SRC --threads 10 $NFDS_SRC/model.jl ../data/input.csv `head -n $1 ../raw/seed.csv | tail -n 1`
 
 exit
