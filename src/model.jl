@@ -137,6 +137,7 @@ function run_abc_smc(state::ModelState, seed::Int;
         df.distance = dists
         path = "$out_dir/smc_gen$(lpad(g, 3, '0')).csv"
         CSV.write(path, df)
+        GC.gc()  # free memory from the previous generation
         @printf("  Gen %2d | ε=%.4f | accept=%d/%d | mean_d=%.4f | %s\n",
                 g, threshold, length(ok), n_cand, mean(dists), basename(path))
     end
