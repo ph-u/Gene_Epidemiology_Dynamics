@@ -472,7 +472,13 @@ Allocate one SimBuffer sized for the given ModelState.
 Call once per thread before entering the ABC-SMC loop.
 """
 function alloc_sim_buffer(s::ModelState)
-    max_n = 20 * sum(s.kD)          # from the explosion guard in simulate()
+    # Buffer capacity: 5× carrying capacity covers realistic population variation.
+    # Simulations that grow beyond this are treated as invalid explosions and
+    # return false before writing to the buffer (see bounds checks in simulate!).
+    # Using the biology explosion threshold (20×) instead would pre-allocate
+    # ~8.5 GB of permanent buffer memory — 7× more than needed — leaving
+    # insufficient headroom within the 12 GB LSF memory limit.
+    max_n = 5 * sum(s.kD)
     nT    = length(s.eqm_dates)
     nA    = size(s.a_prob, 1)
 
@@ -643,8 +649,9 @@ function simulate!(θ::AbstractVector{<:Real}, s::ModelState, buf::SimBuffer)
         end
 
         total_off = sum(offs_v)
-        total_off == 0           && return false   # extinction
-        total_off > 20 * kD_sum  && return false   # explosion
+        total_off == 0            && return false   # extinction
+        total_off > 20 * kD_sum   && return false   # biological explosion check
+        total_off > length(buf.new_gen) && return false   # buffer capacity (5× kD_sum)
 
         # Expand offspring into buf.new_gen / buf.new_dem
         ptr = 1
@@ -676,6 +683,11 @@ function simulate!(θ::AbstractVector{<:Real}, s::ModelState, buf::SimBuffer)
         # ── G: Immigration — pre-computed CDFs, zero wt_sample allocation ─
         if migration > 0
             n_mig = rand(Poisson(migration * n))
+            # Guard: immigration runs AFTER the offspring explosion check, so n can
+            # grow beyond buf.gen's capacity without a separate check here.
+            # Treat buffer overflow as an explosion — these parameter values produce
+            # unrealistically large populations and would never be accepted as ABC particles.
+            n + n_mig > length(buf.gen) && return false
             for _ in 1:n_mig
                 d_to  = searchsortedfirst(buf.dProp_cdf, rand())
                 g_mig = searchsortedfirst(view(buf.mP0_cdf, :, d_to), rand())
