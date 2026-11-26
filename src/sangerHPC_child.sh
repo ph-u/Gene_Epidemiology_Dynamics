@@ -11,7 +11,7 @@
 #BSUB -o ../work/pj01-%J-%I.o
 #BSUB -e ../work/pj01-%J-%I.e
 #BSUB -q week
-#BSUB -n 10
+#BSUB -n tHs
 #BSUB -M 12000
 #BSUB -R "select[mem>12000] rusage[mem=12000] span[hosts=1]"
 #BSUB -J "gdy[1-mAx]"
@@ -19,7 +19,7 @@
 PATH="/software/isg/private/wrappers/apptainer/1.4.0:$PATH"
 export NFDS_SRC=${PWD}/src
 
-apptainer run --env JULIA_NUM_THREADS=10 --env OPENBLAS_NUM_THREADS=10 --bind ${PWD}/../data:/data --pwd /src gene_epidemiology_dynamics_latest.sif bash run.sh ${LSB_JOBINDEX}
+apptainer run --env JULIA_NUM_THREADS=tHs --env OPENBLAS_NUM_THREADS=tHs --bind ${PWD}/../data:/data --pwd /src gene_epidemiology_dynamics_latest.sif bash run.sh ${LSB_JOBINDEX}
 
 exit
 ## any BSUB -J with the correct format, no matter at any line, later line will replace earlier lines # BSUB -J "tdy[1-360]"

@@ -10,9 +10,11 @@
 #   N separate R processes but with 100× less per-particle overhead.
 #
 # Usage (from the repo root):
-#   julia --project=src --threads auto src/model.jl ../data/input.csv 1
+#   julia --project=src --threads 7 src/model.jl ../data/input.csv 1
 #
-#   --threads auto    = use all available physical CPU cores
+#   --threads 7       = 7 threads (LSF slot count; do NOT use --threads auto
+#                       inside Apptainer — it reads the physical node's core
+#                       count, not the LSF allocation, causing OOM kills)
 #   second argument   = integer seed (matches the R seed convention)
 
 # Same pattern as nfds.jl: guard against double-include and use @__DIR__ for
@@ -60,7 +62,7 @@ perturb(θ::AbstractVector, σ::Float64 = 0.1) =
 Run ABC-SMC.  Parameters match the R+BRREWABC implementation:
   pilot_n     = 200   — pilot simulations to establish the initial threshold
   n_particles = 500   — accepted particles per SMC generation
-  n_smc_gen   = 1000    — number of successive tightening rounds
+  n_smc_gen   = 20    — number of successive tightening rounds
 
 Checkpoints are written to `../data/run_<seed>/smc_gen***.csv` after each
 generation.  The final posterior is also saved as `posterior.csv`.
@@ -77,15 +79,21 @@ function run_abc_smc(state::ModelState, seed::Int;
     n_cpu   = Threads.nthreads()
     println("ABC-SMC | seed=$seed | $n_cpu threads | $n_dim parameters\n")
 
+    # ── Pre-allocate one SimBuffer per thread ─────────────────────────────
+    # Each buffer holds all large arrays needed by simulate!() so that the
+    # threaded proposal loop performs zero heap allocation per simulate call.
+    # Buffers are sized at model-state construction time and remain live for
+    # the full run; GC never needs to collect per-call temporaries.
+    println("Allocating thread-local simulation buffers…")
+    buffers = [alloc_sim_buffer(state) for _ in 1:n_cpu]
+    println("  $(n_cpu) buffers allocated (≈$(round(Int, Base.summarysize(buffers)/1024^2)) MB total)\n")
+
     # ── Phase 1: pilot run ────────────────────────────────────────────────
-    # Draw pilot_n parameter vectors from the flat prior, evaluate in parallel,
-    # and use the median distance as the starting acceptance threshold.
-    # This matches the BRREWABC PILOT_N step.
     println("Phase 1 — pilot (n=$pilot_n, using $n_cpu threads)…")
     pilot_θ = [sample_prior(n_dim) for _ in 1:pilot_n]
     pilot_d = Vector{Float64}(undef, pilot_n)
-    Threads.@threads for i in 1:pilot_n     # ← N proposals evaluated simultaneously
-        pilot_d[i] = abc_distance(pilot_θ[i], state)
+    Threads.@threads for i in 1:pilot_n
+        pilot_d[i] = abc_distance!(pilot_θ[i], state, buffers[Threads.threadid()])
     end
 
     finite_d = filter(isfinite, pilot_d)
@@ -117,8 +125,8 @@ function run_abc_smc(state::ModelState, seed::Int;
         n_cand = n_particles * 20                      # oversample heavily
         cands  = [perturb(rand(particles)) for _ in 1:n_cand]
         cand_d = Vector{Float64}(undef, n_cand)
-        Threads.@threads for i in 1:n_cand             # ← the parallelism
-            cand_d[i] = abc_distance(cands[i], state)
+        Threads.@threads for i in 1:n_cand
+            cand_d[i] = abc_distance!(cands[i], state, buffers[Threads.threadid()])
         end
 
         ok = findall(d -> isfinite(d) && d <= threshold, cand_d)
@@ -137,9 +145,14 @@ function run_abc_smc(state::ModelState, seed::Int;
         df.distance = dists
         path = "$out_dir/smc_gen$(lpad(g, 3, '0')).csv"
         CSV.write(path, df)
-        GC.gc()  # free memory from the previous generation
         @printf("  Gen %2d | ε=%.4f | accept=%d/%d | mean_d=%.4f | %s\n",
                 g, threshold, length(ok), n_cand, mean(dists), basename(path))
+
+        # Force collection of any dead allocations before the next generation.
+        # With SimBuffer pre-allocation this is a lightweight sweep — it clears
+        # the minor heap (cands, cand_d, sortperm temporaries) but does not
+        # touch the resident buffer arrays which are always live.
+        GC.gc()
     end
 
     # ── Final posterior ───────────────────────────────────────────────────
@@ -154,10 +167,10 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     length(ARGS) < 2 && error("""
     Usage:
-      julia --project=src --threads auto src/model.jl <input_csv> <seed>
+      julia --project=src --threads 7 src/model.jl <input_csv> <seed>
 
-    Example (10 cores, seed 1):
-      julia --project=src --threads 10 src/model.jl ../data/input.csv 1
+    Example (7 threads, seed 1):
+      julia --project=src --threads 7 src/model.jl ../data/input.csv 1
     """)
 
     input_csv  = ARGS[1]
