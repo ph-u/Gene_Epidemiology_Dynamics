@@ -10,12 +10,19 @@
 #   N separate R processes but with 100× less per-particle overhead.
 #
 # Usage (from the repo root):
-#   julia --project=src --threads 7 src/model.jl ../data/input.csv 1
+#   julia --project=src --threads 7 --heap-size-hint=6G src/model.jl ../data/input.csv 1
 #
-#   --threads 7       = 7 threads (LSF slot count; do NOT use --threads auto
-#                       inside Apptainer — it reads the physical node's core
-#                       count, not the LSF allocation, causing OOM kills)
-#   second argument   = integer seed (matches the R seed convention)
+#   --threads 7           = 7 threads (LSF slot count; do NOT use --threads auto
+#                           inside Apptainer — it reads the physical node's core
+#                           count, not the LSF allocation, causing OOM kills)
+#   --heap-size-hint=6G   = keep GC heap near 6 GB.  The SimBuffer holds 1.9 GB
+#                           of permanently live objects, which raises Julia's
+#                           calculated GC trigger to ~7.8 GB (2× live set).
+#                           Without a hint the GC delays too long between sweeps,
+#                           allowing dead randperm/jsd arrays to accumulate.
+#                           6G sits below the natural target so the GC collects
+#                           slightly more often, capping the peak RSS below 12 GB.
+#   second argument       = integer seed (matches the R seed convention)
 
 # Same pattern as nfds.jl: guard against double-include and use @__DIR__ for
 # an absolute path that works from any working directory.
@@ -167,10 +174,10 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     length(ARGS) < 2 && error("""
     Usage:
-      julia --project=src --threads 7 src/model.jl <input_csv> <seed>
+      julia --project=src --threads 7 --heap-size-hint=6G src/model.jl <input_csv> <seed>
 
     Example (7 threads, seed 1):
-      julia --project=src --threads 7 src/model.jl ../data/input.csv 1
+      julia --project=src --threads 7 --heap-size-hint=6G src/model.jl ../data/input.csv 1
     """)
 
     input_csv  = ARGS[1]

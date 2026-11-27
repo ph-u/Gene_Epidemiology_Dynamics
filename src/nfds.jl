@@ -465,6 +465,15 @@ mutable struct SimBuffer
     # repeated findall(==(d), dem_v) which allocates O(n) per deme per month.
     idx_d    ::Vector{Vector{Int}}   # nD arrays, each capacity max_n
     n_per_d  ::Vector{Int}           # nD — live count of bacteria in each deme
+
+    # Permutation buffer for within-deme migration shuffle.
+    # randperm(n) allocates n×8 bytes (≈6.4 MB when n≈800,000) every month.
+    # With 120 months × 7 threads, that is 5.4 GB of allocation throughput per
+    # SMC generation.  The enlarged GC trigger threshold caused by the SimBuffer
+    # live set (7×272 MB = 1.9 GB → GC target ≈ 7.8 GB) delays collection,
+    # allowing several GB of dead randperm arrays to accumulate — the 7 GB spike.
+    # Pre-allocating here and using Random.shuffle!(view) eliminates it entirely.
+    perm     ::Vector{Int}           # capacity max_n — reused each month in-place
 end
 
 """
@@ -515,6 +524,7 @@ function alloc_sim_buffer(s::ModelState)
         Vector{Int}(undef, max_n),
         [Vector{Int}(undef, max_n) for _ in 1:s.nD],
         zeros(Int, s.nD),
+        Vector{Int}(undef, max_n),
     )
 end
 
@@ -671,7 +681,10 @@ function simulate!(θ::AbstractVector{<:Real}, s::ModelState, buf::SimBuffer)
 
         # ── F: Within-deme migration ──────────────────────────────────────
         if any(>(0), mW) && nD > 1
-            for i in randperm(n)   # randperm: n ints — small, unavoidable
+            perm_v = view(buf.perm, 1:n)
+            perm_v .= 1:n                 # fill sequential — no allocation
+            Random.shuffle!(perm_v)       # in-place Fisher-Yates — no allocation
+            for i in perm_v               # was: randperm(n) → 6.4 MB/month
                 d_from = dem_v[i]
                 r_tot  = sum(view(mW, d_from, :))
                 r_tot == 0 && continue
